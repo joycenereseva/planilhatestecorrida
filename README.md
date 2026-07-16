@@ -13,18 +13,23 @@ Página web da **Profª Joyce Neres** para registrar o teste de Conconi na estei
 7. Os resultados calculam **automaticamente** (como no Excel).
 8. Envie pelo **WhatsApp** ou **PDF**.
 
-## Fórmulas (iguais à planilha Excel)
+## Foco: VVO2máx (velocidade)
 
-| Resultado | Fórmula |
-|-----------|---------|
-| Velocidade máxima | Último estágio de esforço com FC preenchida |
-| iVO2máx | = velocidade máxima |
-| VO2máx (ml.kg.min) | `2,21 × iVO2máx + 2,27` |
-| VO2máx (L.min) | `(VO2máx × peso) / 1000` |
-| METs | `VO2máx / 3,5` |
-| Índice de FC | `FCmáx / FC repouso` |
-| FC L1/L2 % | `FC limiar / FCmáx × 100` |
-| % iVO2máx → km/h | `(% / 100) × iVO2máx` |
+O dado crítico é a **velocidade do último estágio completo** (ou interpolada se parar no meio). A **FC é opcional**.
+
+| Resultado | Como é obtido |
+|-----------|----------------|
+| **VVO2máx** | Velocidade do último estágio de esforço com PSE (100%) ou interpolação |
+| **Interpolação** | `V_anterior + (V_atual − V_anterior) × (% concluído / 100)` |
+| **VO2máx** | `2,21 × VVO2máx + 2,27` |
+| **METs** | `VO2máx / 3,5` |
+| **Zonas de treino** | % da VVO2máx (ex.: 70–80% contínuo, 100–110% intervalado) |
+
+## Como usar (sem FC)
+
+1. Preencha **PSE** em cada minuto de esforço até a exaustão.
+2. Ajuste **estágio final** e **% concluído** se parou no meio do estágio.
+3. Resultados e prescrição calculam automaticamente.
 
 ## Protocolo (16 estágios)
 

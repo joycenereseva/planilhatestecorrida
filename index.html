@@ -78,7 +78,7 @@ body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--preto)
 <section class="relative text-white py-12 overflow-hidden no-print" style="background:#18181B">
   <div class="container mx-auto px-4 text-center relative z-10">
     <h1 class="text-3xl md:text-5xl font-black mb-3" style="font-family:'Playfair Display',serif;font-style:italic">PLANILHA <span style="color:var(--verde-light)">CONCONI</span></h1>
-    <p class="text-gray-400 text-sm max-w-lg mx-auto">Preencha FC e PSE a cada minuto — os resultados calculam automaticamente, como no Excel.</p>
+    <p class="text-gray-400 text-sm max-w-xl mx-auto">Foco em <strong class="text-white">VVO2máx</strong>: preencha a <strong class="text-white">PSE</strong> a cada minuto. A FC é opcional. Os resultados calculam pela velocidade do último estágio (com interpolação se parar no meio).</p>
   </div>
 </section>
 
@@ -115,8 +115,15 @@ body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--preto)
     <div><label class="text-[10px] font-bold uppercase text-gray-500">Peso (kg)</label><input type="number" step="0.1" id="fld-peso" class="input-meta mt-1" oninput="onFieldChange()"></div>
     <div><label class="text-[10px] font-bold uppercase text-gray-500">Nível de treino</label><input type="text" id="fld-nivel" class="input-meta mt-1" oninput="onFieldChange()"></div>
     <div><label class="text-[10px] font-bold uppercase text-gray-500">Data da avaliação</label><input type="date" id="fld-data" class="input-meta mt-1" onchange="onFieldChange()"></div>
-    <div><label class="text-[10px] font-bold uppercase text-gray-500">FC repouso (bpm)</label><input type="number" id="fld-fc-rest" class="input-meta mt-1" oninput="onFieldChange()"></div>
   </div>
+  <details class="mt-3 bg-white rounded-xl shadow p-4 text-sm">
+    <summary class="font-bold cursor-pointer text-gray-600">FC opcional (se tiver monitor cardíaco)</summary>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+      <div><label class="text-[10px] font-bold uppercase text-gray-500">FC repouso</label><input type="number" id="fld-fc-rest" class="input-meta mt-1" oninput="onFieldChange()"></div>
+      <div><label class="text-[10px] font-bold uppercase text-gray-500">FC L1</label><input type="number" id="fld-fc-l1" class="input-meta mt-1" oninput="onFieldChange()"></div>
+      <div><label class="text-[10px] font-bold uppercase text-gray-500">FC L2</label><input type="number" id="fld-fc-l2" class="input-meta mt-1" oninput="onFieldChange()"></div>
+    </div>
+  </details>
 </section>
 
 <!-- LAYOUT PRINCIPAL: TABELA + RESULTADOS + % iVO2 -->
@@ -132,14 +139,28 @@ body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--preto)
             <th class="th-blue p-2">Fase</th>
             <th class="th-blue p-2">Tempo</th>
             <th class="th-blue p-2">Vel (km/h)</th>
-            <th class="th-blue p-2">FC (bpm)</th>
-            <th class="th-blue p-2">PSE</th>
+            <th class="th-blue p-2">FC <span class="opacity-70">(opc.)</span></th>
+            <th class="th-blue p-2">PSE *</th>
           </tr>
         </thead>
         <tbody id="stages-body"></tbody>
       </table>
     </div>
-    <p class="text-xs text-gray-400 mt-2 flex items-center gap-1"><i data-lucide="info" class="w-3 h-3"></i> Aquecimento: 3 min a 5 km/h. Depois +1 km/h por minuto.</p>
+    <p class="text-xs text-gray-400 mt-2">* PSE é obrigatória nos estágios de esforço. Marque onde o teste terminou abaixo.</p>
+    <div class="bg-white rounded-xl shadow p-4 mt-3 border border-gray-100">
+      <p class="text-xs font-bold uppercase text-gray-500 mb-3">Onde o teste terminou?</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label class="text-[10px] font-bold text-gray-500">Estágio final</label>
+          <select id="fld-stop-stage" class="input-meta mt-1" onchange="onFieldChange()"></select>
+        </div>
+        <div>
+          <label class="text-[10px] font-bold text-gray-500">% do estágio concluído</label>
+          <input type="number" id="fld-stage-pct" class="input-meta mt-1" min="0" max="100" value="100" oninput="onFieldChange()">
+          <p class="text-[10px] text-gray-400 mt-1">100% = estágio completo. &lt;100% aplica interpolação de VVO2máx.</p>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- RESULTADOS -->
@@ -150,13 +171,11 @@ body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--preto)
       </table>
     </div>
     <div class="mt-4 bg-white rounded-xl shadow p-4">
-      <p class="text-xs font-bold uppercase text-gray-500 mb-2">Identifique os limiares no gráfico</p>
-      <div class="grid grid-cols-2 gap-3">
-        <div><label class="text-[10px] font-bold text-gray-500">FC L1 (bpm)</label><input type="number" id="fld-fc-l1" class="res-input mt-1" oninput="onFieldChange()"></div>
-        <div><label class="text-[10px] font-bold text-gray-500">FC L2 (bpm)</label><input type="number" id="fld-fc-l2" class="res-input mt-1" oninput="onFieldChange()"></div>
-      </div>
+      <p class="text-xs font-bold uppercase text-gray-500 mb-2">Prescrição por % VVO2máx</p>
+      <div id="prescription-zones" class="text-sm space-y-2"></div>
     </div>
     <div class="mt-4 bg-white rounded-xl shadow p-4">
+      <p class="text-xs font-bold uppercase text-gray-500 mb-2" id="chart-title">Gráfico PSE × Velocidade</p>
       <div class="chart-wrap"><canvas id="hr-chart"></canvas></div>
     </div>
   </div>
@@ -164,7 +183,7 @@ body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--preto)
   <!-- TABELA % iVO2máx -->
   <div class="lg:col-span-3">
     <div class="rounded-xl shadow-xl overflow-hidden border border-gray-200 bg-white">
-      <div class="th-blue p-3 text-center text-xs font-bold">% iVO2máx → KM/H</div>
+      <div class="th-blue p-3 text-center text-xs font-bold">% VVO2máx → KM/H</div>
       <div id="intensity-table" class="max-h-[520px] overflow-y-auto"></div>
     </div>
   </div>
@@ -353,6 +372,8 @@ function getMetaFromForm(){
     fcRest:document.getElementById('fld-fc-rest').value,
     fcL1:document.getElementById('fld-fc-l1').value,
     fcL2:document.getElementById('fld-fc-l2').value,
+    stopStage:document.getElementById('fld-stop-stage').value,
+    stagePctComplete:document.getElementById('fld-stage-pct').value,
     whatsapp:document.getElementById('fld-whatsapp').value,
     studentName:document.getElementById('fld-nome').value.trim()
   };
@@ -408,12 +429,32 @@ function loadAssessment(){
   document.getElementById('fld-fc-l1').value=m.fcL1||'';
   document.getElementById('fld-fc-l2').value=m.fcL2||'';
   document.getElementById('fld-whatsapp').value=m.whatsapp||'';
+  document.getElementById('fld-stage-pct').value=m.stagePctComplete!=null?m.stagePctComplete:100;
   if(m.dataAvaliacao){
     var p=m.dataAvaliacao.split('/');
     if(p.length===3)document.getElementById('fld-data').value=p[2]+'-'+p[1]+'-'+p[0];
   }else document.getElementById('fld-data').value='';
   renderStagesTable(a.stages&&a.stages.length?a.stages:ConconiCalc.generateProtocolStages());
+  updateStopStageSelect(a.stages||ConconiCalc.generateProtocolStages(),m);
+  if(m.stopStage)document.getElementById('fld-stop-stage').value=m.stopStage;
   recalculate();
+}
+
+function updateStopStageSelect(stages,meta){
+  var sel=document.getElementById('fld-stop-stage');
+  if(!sel)return;
+  var cur=sel.value;
+  var html='';
+  stages.forEach(function(s){
+    if(s.stage<4)return;
+    var spd=s.speed!=null?s.speed:ConconiCalc.speedForStage(s.stage);
+    html+='<option value="'+s.stage+'">Estágio '+s.stage+' ('+spd+' km/h)</option>';
+  });
+  sel.innerHTML=html||'<option value="">—</option>';
+  var suggested=ConconiCalc.suggestStopStage(stages);
+  if(meta&&meta.stopStage)sel.value=meta.stopStage;
+  else if(suggested)sel.value=String(suggested);
+  else if(cur)sel.value=cur;
 }
 
 function renderStagesTable(stages){
@@ -444,29 +485,48 @@ function recalculate(){
   var meta=getMetaFromForm();
   var stages=getStagesFromTable();
   if(!stages.length)stages=ConconiCalc.generateProtocolStages();
+  updateStopStageSelect(stages,meta);
+  var suggested=ConconiCalc.suggestStopStage(stages);
+  var pct=ConconiCalc.parseNum(document.getElementById('fld-stage-pct').value);
+  if(suggested&&(pct===null||pct>=100)){
+    document.getElementById('fld-stop-stage').value=String(suggested);
+  }
+  meta=getMetaFromForm();
   currentResults=ConconiCalc.calculateResults(meta,stages);
   renderResultsPanel(meta,currentResults);
   renderIntensityTable(currentResults);
+  renderPrescriptionZones(currentResults);
   renderChart(currentResults);
   persistAssessment();
 }
 
 function renderResultsPanel(meta,r){
   var rows=[
-    ['FC máxima do teste',r.fcMax!=null?r.fcMax+' bpm':'—'],
-    ['Velocidade máxima do teste',r.maxSpeed!=null?ConconiCalc.formatNum(r.maxSpeed,0)+' km/h':'—'],
+    ['VVO2máx (velocidade)',r.vvo2max!=null?ConconiCalc.formatNum(r.vvo2max,2)+' km/h':'—'],
+    ['Método',r.vvo2Detail?(r.vvo2Detail.method==='interpolado'?'Interpolação ('+ConconiCalc.formatNum(r.vvo2Detail.pctComplete,0)+'% do estág. '+r.vvo2Detail.stopStage+')':'Estágio '+r.vvo2Detail.stopStage+' completo'):'—'],
     ['PSE máxima do teste',r.pseMax!=null?r.pseMax:'—'],
-    ['iVO2máx',r.iVo2max!=null?ConconiCalc.formatNum(r.iVo2max,0)+' km/h':'—'],
-    ['FC repouso',r.fcRest!=null?r.fcRest+' bpm':'—'],
-    ['Índice de FC',r.indiceFC!=null?ConconiCalc.formatNum(r.indiceFC,2):'—'],
-    ['METs',r.mets!=null?ConconiCalc.formatNum(r.mets,2):'—'],
     ['VO2máx (ml.kg.min)',r.vo2ml!=null?ConconiCalc.formatNum(r.vo2ml,2):'—'],
     ['VO2máx (L.min)',r.vo2L!=null?ConconiCalc.formatNum(r.vo2L,3):'—'],
-    ['FC L1 (% FC máx)',r.fcL1pct!=null?ConconiCalc.formatNum(r.fcL1pct,4)+'%':'—'],
-    ['FC L2 (% FC máx)',r.fcL2pct!=null?ConconiCalc.formatNum(r.fcL2pct,4)+'%':'—']
+    ['METs',r.mets!=null?ConconiCalc.formatNum(r.mets,2):'—']
   ];
+  if(r.hrAvailable){
+    rows.push(['FC máxima do teste',r.fcMax!=null?r.fcMax+' bpm':'—']);
+    rows.push(['FC repouso',r.fcRest!=null?r.fcRest+' bpm':'—']);
+    rows.push(['Índice de FC',r.indiceFC!=null?ConconiCalc.formatNum(r.indiceFC,2):'—']);
+    rows.push(['FC L1 (% FC máx)',r.fcL1pct!=null?ConconiCalc.formatNum(r.fcL1pct,2)+'%':'—']);
+    rows.push(['FC L2 (% FC máx)',r.fcL2pct!=null?ConconiCalc.formatNum(r.fcL2pct,2)+'%':'—']);
+  }
   document.getElementById('results-body').innerHTML=rows.map(function(row){
-    return '<tr><td class="res-label">'+row[0]+'</td><td class="res-value">'+row[1]+'</td></tr>';
+    var highlight=row[0].indexOf('VVO2')===0?' style="background:#fff9c4"':'';
+    return '<tr'+highlight+'><td class="res-label">'+row[0]+'</td><td class="res-value">'+row[1]+'</td></tr>';
+  }).join('');
+}
+
+function renderPrescriptionZones(r){
+  var el=document.getElementById('prescription-zones');
+  if(!el||!r.prescriptionZones||!r.prescriptionZones.length){if(el)el.innerHTML='<p class="text-gray-400 text-xs">Preencha a PSE nos estágios de esforço.</p>';return;}
+  el.innerHTML=r.prescriptionZones.map(function(z){
+    return '<div class="flex items-center gap-2 py-1 border-b border-gray-100"><span class="w-2 h-2 rounded-full shrink-0" style="background:'+z.color+'"></span><span class="flex-grow text-xs font-semibold">'+z.name+'</span><span class="text-xs font-bold" style="color:var(--verde-dark)">'+ConconiCalc.formatNum(z.speedMin,2)+'–'+ConconiCalc.formatNum(z.speedMax,2)+' km/h</span></div>';
   }).join('');
 }
 
@@ -481,27 +541,27 @@ function renderIntensityTable(r){
 
 function renderChart(r){
   var ctx=document.getElementById('hr-chart');
+  var title=document.getElementById('chart-title');
   if(!ctx)return;
   if(hrChart)hrChart.destroy();
-  if(!r.chart||!r.chart.hr.length)return;
-  var fcL1=ConconiCalc.parseNum(document.getElementById('fld-fc-l1').value);
-  var fcL2=ConconiCalc.parseNum(document.getElementById('fld-fc-l2').value);
+  if(!r.chart||!r.chart.labels.length)return;
+  var useHr=r.chart.mode==='hr'&&r.chart.hr.length;
+  if(title)title.textContent=useHr?'Gráfico FC × Velocidade':'Gráfico PSE × Velocidade';
+  var data=useHr?r.chart.hr:r.chart.pse;
+  var labels=useHr?r.chart.labels:r.chart.pseLabels;
   hrChart=new Chart(ctx,{
     type:'line',
     data:{
-      labels:r.chart.labels,
+      labels:labels,
       datasets:[{
-        label:'FC (bpm)',
-        data:r.chart.hr,
+        label:useHr?'FC (bpm)':'PSE',
+        data:data,
         borderColor:'#4A7C62',
         backgroundColor:'rgba(74,124,98,.1)',
         fill:true,
         tension:.3,
         pointRadius:5,
-        pointBackgroundColor:r.chart.hr.map(function(h){
-          if(h===fcL1||h===fcL2)return '#E85D04';
-          return '#4A7C62';
-        })
+        pointBackgroundColor:'#4A7C62'
       }]
     },
     options:{
@@ -510,7 +570,7 @@ function renderChart(r){
       plugins:{legend:{display:false}},
       scales:{
         x:{title:{display:true,text:'Velocidade (km/h)'}},
-        y:{title:{display:true,text:'FC (bpm)'},beginAtZero:false}
+        y:{title:{display:true,text:useHr?'FC (bpm)':'PSE'},beginAtZero:useHr?false:true}
       }
     }
   });
@@ -544,12 +604,11 @@ function generatePDF(){
   doc.setFontSize(14);doc.text('Teste Conconi — '+meta.nome,20,y);y+=10;
   doc.setFontSize(10);
   if(meta.dataAvaliacao)doc.text('Data: '+meta.dataAvaliacao,20,y);y+=8;
-  if(r.fcMax)doc.text('FC max: '+r.fcMax+' bpm',20,y);y+=6;
-  if(r.iVo2max)doc.text('iVO2max: '+ConconiCalc.formatNum(r.iVo2max,0)+' km/h',20,y);y+=6;
+  if(r.vvo2max)doc.text('VVO2max: '+ConconiCalc.formatNum(r.vvo2max,2)+' km/h',20,y);y+=6;
+  if(r.pseMax)doc.text('PSE max: '+r.pseMax,20,y);y+=6;
   if(r.vo2ml)doc.text('VO2max: '+ConconiCalc.formatNum(r.vo2ml,2)+' ml.kg.min',20,y);y+=6;
   if(r.mets)doc.text('METs: '+ConconiCalc.formatNum(r.mets,2),20,y);y+=6;
-  if(r.fcL1)doc.text('FC L1: '+r.fcL1+' bpm ('+ConconiCalc.formatNum(r.fcL1pct,1)+'%)',20,y);y+=6;
-  if(r.fcL2)doc.text('FC L2: '+r.fcL2+' bpm ('+ConconiCalc.formatNum(r.fcL2pct,1)+'%)',20,y);y+=8;
+  if(r.hrAvailable&&r.fcMax)doc.text('FC max: '+r.fcMax+' bpm',20,y);y+=6;
   doc.text('Prof. Joyce Neres — JN Consultoria de Treino',20,y);
   doc.save('conconi-'+(meta.nome||'aluna').replace(/\s+/g,'-').toLowerCase()+'.pdf');
   showToast('PDF baixado!');
