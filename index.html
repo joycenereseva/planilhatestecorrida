@@ -43,6 +43,23 @@ body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--preto)
 .assess-tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:0;scrollbar-width:none;}
 .assess-tabs::-webkit-scrollbar{display:none;}
 .chart-wrap{height:260px;max-width:100%;}
+.evolution-grid{display:grid;grid-template-columns:repeat(1,minmax(0,1fr));gap:1rem;}
+@media(min-width:640px){.evolution-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(min-width:1024px){.evolution-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
+.chart-card{background:#fff;border-radius:1rem;box-shadow:0 4px 24px rgba(26,26,26,.06);border:1px solid rgba(74,124,98,.12);padding:1rem 1rem .75rem;transition:box-shadow .2s,transform .2s;}
+.chart-card:hover{box-shadow:0 8px 32px rgba(74,124,98,.14);transform:translateY(-2px);}
+.chart-card-title{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#666;margin-bottom:.5rem;display:flex;align-items:center;gap:.5rem;}
+.chart-card-title .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.chart-card-canvas{height:200px;position:relative;}
+.evolution-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:1rem;box-shadow:0 4px 24px rgba(26,26,26,.06);border:1px solid rgba(74,124,98,.12);}
+.evolution-table{width:100%;border-collapse:collapse;font-size:.75rem;min-width:640px;}
+.evolution-table th{background:var(--verde);color:#fff;font-weight:800;padding:10px 12px;text-align:center;white-space:nowrap;font-size:.65rem;text-transform:uppercase;letter-spacing:.04em;}
+.evolution-table th:first-child{text-align:left;min-width:180px;}
+.evolution-table td{padding:8px 12px;text-align:center;font-weight:700;border-bottom:1px solid #f0f0f0;}
+.evolution-table td:first-child{text-align:left;background:#fafaf8;font-weight:700;color:#444;font-size:.7rem;}
+.evolution-table tr:last-child td{border-bottom:none;}
+.evolution-table .val-null{color:#ccc;font-weight:400;}
+.evolution-table .row-highlight td{background:#fffde7;}
 @media(max-width:1023px){.layout-grid{display:flex;flex-direction:column;gap:1.5rem;}}
 </style>
 </head>
@@ -189,6 +206,23 @@ body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--preto)
   </div>
 </div>
 
+<!-- GRÁFICOS DE EVOLUÇÃO -->
+<section id="graficos" class="mb-12">
+  <h2 class="text-xl font-bold mb-2 section-title">Gráficos de evolução</h2>
+  <p class="text-sm text-gray-500 mb-5">Comparativo entre todas as avaliações da aluna selecionada — como na aba &quot;gráficos&quot; da planilha, com visual aprimorado.</p>
+  <div id="evolution-empty" class="hidden bg-white rounded-2xl shadow p-8 text-center text-gray-400 text-sm">
+  </div>
+  <div id="evolution-content" class="space-y-6">
+    <div class="evolution-table-wrap bg-white">
+      <table class="evolution-table" id="evolution-table">
+        <thead id="evolution-thead"></thead>
+        <tbody id="evolution-tbody"></tbody>
+      </table>
+    </div>
+    <div class="evolution-grid" id="evolution-charts"></div>
+  </div>
+</section>
+
 <!-- ENVIAR -->
 <section id="enviar" class="mb-12">
   <h2 class="text-xl font-bold mb-4 section-title">Enviar para a aluna</h2>
@@ -219,6 +253,7 @@ var activeStudentId=null;
 var activeAssessmentId=null;
 var currentResults=null;
 var hrChart=null;
+var evolutionCharts={};
 
 function initLucide(){if(typeof lucide!=='undefined')lucide.createIcons();}
 
@@ -497,6 +532,7 @@ function recalculate(){
   renderIntensityTable(currentResults);
   renderPrescriptionZones(currentResults);
   renderChart(currentResults);
+  renderEvolutionSection();
   persistAssessment();
 }
 
@@ -539,6 +575,95 @@ function renderIntensityTable(r){
   }).join('');
 }
 
+function chartBaseOptions(yLabel,unit){
+  return{
+    responsive:true,
+    maintainAspectRatio:false,
+    interaction:{mode:'index',intersect:false},
+    plugins:{
+      legend:{display:false},
+      tooltip:{
+        backgroundColor:'rgba(26,26,26,.92)',
+        titleFont:{family:'Montserrat',weight:'700',size:11},
+        bodyFont:{family:'Montserrat',size:12},
+        padding:12,
+        cornerRadius:10,
+        callbacks:{
+          label:function(ctx){
+            var v=ctx.parsed.y;
+            if(v==null||!Number.isFinite(v))return '—';
+            return ConconiCalc.formatNum(v,ctx.dataset._decimals!=null?ctx.dataset._decimals:2)+(unit?' '+unit:'');
+          }
+        }
+      }
+    },
+    scales:{
+      x:{
+        grid:{display:false},
+        ticks:{font:{family:'Montserrat',size:10,weight:'600'},color:'#888',maxRotation:0},
+        border:{display:false}
+      },
+      y:{
+        title:{display:!!yLabel,text:yLabel||'',font:{family:'Montserrat',size:10,weight:'700'},color:'#888'},
+        grid:{color:'rgba(0,0,0,.04)'},
+        ticks:{font:{family:'Montserrat',size:10},color:'#888'},
+        border:{display:false},
+        beginAtZero:false,
+        grace:'8%'
+      }
+    }
+  };
+}
+
+function hexToRgba(hex,a){
+  var h=hex.replace('#','');
+  if(h.length===3)h=h.split('').map(function(c){return c+c;}).join('');
+  var r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
+  return 'rgba('+r+','+g+','+b+','+a+')';
+}
+
+function makeGradient(ctx,area,color){
+  var g=ctx.createLinearGradient(0,area.top,0,area.bottom);
+  g.addColorStop(0,hexToRgba(color,.32));
+  g.addColorStop(1,hexToRgba(color,.03));
+  return g;
+}
+
+function createLineChart(canvasId,labels,data,opts){
+  var el=document.getElementById(canvasId);
+  if(!el)return null;
+  var ctx=el.getContext('2d');
+  var color=opts.color||'#4A7C62';
+  var chart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:labels,
+      datasets:[{
+        label:opts.label,
+        data:data,
+        _decimals:opts.decimals,
+        borderColor:color,
+        backgroundColor:opts.fill?function(c){
+          var area=c.chart.chartArea;
+          if(!area)return color+'22';
+          return makeGradient(ctx,area,color);
+        }:color,
+        fill:!!opts.fill,
+        tension:.4,
+        borderWidth:2.5,
+        pointRadius:labels.length<=6?6:4,
+        pointHoverRadius:8,
+        pointBackgroundColor:'#fff',
+        pointBorderColor:color,
+        pointBorderWidth:2,
+        spanGaps:false
+      }]
+    },
+    options:chartBaseOptions(opts.yLabel,opts.unit)
+  });
+  return chart;
+}
+
 function renderChart(r){
   var ctx=document.getElementById('hr-chart');
   var title=document.getElementById('chart-title');
@@ -549,30 +674,121 @@ function renderChart(r){
   if(title)title.textContent=useHr?'Gráfico FC × Velocidade':'Gráfico PSE × Velocidade';
   var data=useHr?r.chart.hr:r.chart.pse;
   var labels=useHr?r.chart.labels:r.chart.pseLabels;
-  hrChart=new Chart(ctx,{
-    type:'line',
-    data:{
-      labels:labels,
-      datasets:[{
-        label:useHr?'FC (bpm)':'PSE',
-        data:data,
-        borderColor:'#4A7C62',
-        backgroundColor:'rgba(74,124,98,.1)',
-        fill:true,
-        tension:.3,
-        pointRadius:5,
-        pointBackgroundColor:'#4A7C62'
-      }]
-    },
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{
-        x:{title:{display:true,text:'Velocidade (km/h)'}},
-        y:{title:{display:true,text:useHr?'FC (bpm)':'PSE'},beginAtZero:useHr?false:true}
-      }
-    }
+  hrChart=createLineChart('hr-chart',labels,data,{
+    label:useHr?'FC (bpm)':'PSE',
+    color:'#4A7C62',
+    fill:true,
+    yLabel:useHr?'FC (bpm)':'PSE',
+    unit:useHr?'bpm':'',
+    decimals:useHr?0:0
+  });
+}
+
+function getEvolutionSnapshots(){
+  var list=getAssessments(activeStudentId);
+  return list.map(function(a,idx){
+    var meta=a.meta||{};
+    var stages=a.stages&&a.stages.length?a.stages:ConconiCalc.generateProtocolStages();
+    var r=ConconiCalc.calculateResults(meta,stages);
+    var colLabel=a.label||('Avaliação '+(idx+1));
+    if(meta.dataAvaliacao)colLabel+='\n'+meta.dataAvaliacao;
+    return{label:colLabel,shortLabel:a.label||('Av. '+(idx+1)),meta:meta,results:r,hasData:!!r.valid};
+  });
+}
+
+function destroyEvolutionCharts(){
+  Object.keys(evolutionCharts).forEach(function(k){
+    if(evolutionCharts[k])evolutionCharts[k].destroy();
+  });
+  evolutionCharts={};
+}
+
+function renderEvolutionSection(){
+  var emptyEl=document.getElementById('evolution-empty');
+  var contentEl=document.getElementById('evolution-content');
+  if(!emptyEl||!contentEl)return;
+
+  var snaps=getEvolutionSnapshots();
+  var withData=snaps.filter(function(s){return s.hasData;});
+
+  if(!snaps.length){
+    emptyEl.classList.remove('hidden');
+    contentEl.classList.add('hidden');
+    emptyEl.textContent='Nenhuma avaliação cadastrada para esta aluna.';
+    destroyEvolutionCharts();
+    return;
+  }
+
+  emptyEl.classList.add('hidden');
+  contentEl.classList.remove('hidden');
+
+  var anyHr=snaps.some(function(s){return s.results.hrAvailable;});
+
+  var metrics=[
+    {key:'vvo2max',label:'VVO2máx',unit:'km/h',decimals:2,highlight:true,color:'#4A7C62'},
+    {key:'pseMax',label:'PSE máxima',unit:'',decimals:0,color:'#E85D04'},
+    {key:'mets',label:'METs',unit:'',decimals:2,color:'#1e3a5f'},
+    {key:'vo2ml',label:'VO2máx (ml.kg.min)',unit:'',decimals:2,color:'#2471A3'},
+    {key:'vo2L',label:'VO2máx (L.min)',unit:'',decimals:3,color:'#5B4FCF'}
+  ];
+  if(anyHr){
+    metrics.push(
+      {key:'fcMax',label:'FC máxima',unit:'bpm',decimals:0,color:'#2d4f3e'},
+      {key:'fcRest',label:'FC repouso',unit:'bpm',decimals:0,color:'#8aba9e'},
+      {key:'indiceFC',label:'Índice de FC',unit:'',decimals:2,color:'#6B4C9A'},
+      {key:'fcL1',label:'FC L1',unit:'bpm',decimals:0,color:'#9B59B6'},
+      {key:'fcL2',label:'FC L2',unit:'bpm',decimals:0,color:'#D4611A'}
+    );
+  }
+
+  var thead=document.getElementById('evolution-thead');
+  var tbody=document.getElementById('evolution-tbody');
+  thead.innerHTML='<tr><th>Parâmetro</th>'+snaps.map(function(s){
+    return '<th>'+s.shortLabel.replace(/</g,'&lt;')+(s.meta.dataAvaliacao?'<br><span style="font-weight:500;opacity:.85;font-size:9px">'+s.meta.dataAvaliacao+'</span>':'')+'</th>';
+  }).join('')+'</tr>';
+
+  tbody.innerHTML=metrics.map(function(m){
+    var rowCls=m.highlight?' class="row-highlight"':'';
+    return '<tr'+rowCls+'><td>'+m.label+'</td>'+snaps.map(function(s){
+      var v=s.results[m.key];
+      if(v==null||!Number.isFinite(v))return '<td class="val-null">—</td>';
+      var txt=ConconiCalc.formatNum(v,m.decimals);
+      if(m.unit)txt+=' <span style="font-weight:500;font-size:10px;color:#888">'+m.unit+'</span>';
+      return '<td>'+txt+'</td>';
+    }).join('')+'</tr>';
+  }).join('');
+
+  destroyEvolutionCharts();
+  var chartsEl=document.getElementById('evolution-charts');
+  var chartMetrics=metrics.filter(function(m){
+    return snaps.some(function(s){var v=s.results[m.key];return v!=null&&Number.isFinite(v);});
+  });
+
+  if(!chartMetrics.length){
+    chartsEl.innerHTML='<p class="text-gray-400 text-sm col-span-full text-center py-6">Preencha pelo menos uma avaliação com PSE nos estágios de esforço para ver os gráficos.</p>';
+    return;
+  }
+
+  chartsEl.innerHTML=chartMetrics.map(function(m,i){
+    return '<div class="chart-card"><div class="chart-card-title"><span class="dot" style="background:'+m.color+'"></span>'+m.label+'</div><div class="chart-card-canvas"><canvas id="evo-chart-'+i+'"></canvas></div></div>';
+  }).join('');
+
+  var labels=snaps.map(function(s){return s.shortLabel;});
+  chartMetrics.forEach(function(m,i){
+    var data=snaps.map(function(s){
+      var v=s.results[m.key];
+      return v!=null&&Number.isFinite(v)?v:null;
+    });
+    var hasAny=data.some(function(v){return v!=null;});
+    if(!hasAny)return;
+    evolutionCharts['c'+i]=createLineChart('evo-chart-'+i,labels,data,{
+      label:m.label,
+      color:m.color,
+      fill:true,
+      yLabel:m.label,
+      unit:m.unit,
+      decimals:m.decimals
+    });
   });
 }
 
