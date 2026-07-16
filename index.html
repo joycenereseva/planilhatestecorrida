@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Planilha — Teste Conconi na Esteira | Profª Joyce Neres</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="js/calculator.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700;900&family=Playfair+Display:ital,wght@0,700;1,700&display=swap');
+:root{--verde:#4A7C62;--verde-dark:#2d4f3e;--verde-light:#8aba9e;--creme:#F0EDE6;--preto:#1A1A1A;--bg:#F7F5F0;--amarelo:#F5C518;--laranja:#E85D04;}
+body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--preto);-webkit-font-smoothing:antialiased;}
+.section-title{position:relative;display:inline-block;}
+.section-title::after{content:'';position:absolute;bottom:-5px;left:0;width:50%;height:4px;background:var(--verde);}
+#coach-gate{position:fixed;inset:0;z-index:500;background:linear-gradient(160deg,#0D1117,#18181B);display:flex;align-items:center;justify-content:center;padding:24px;}
+#coach-gate.hidden{display:none;}
+#app-content.locked{filter:blur(12px);pointer-events:none;}
+.progress-bar{position:fixed;top:0;left:0;right:0;z-index:200;height:3px;background:rgba(0,0,0,.06);}
+.progress-fill{height:100%;background:var(--verde);width:0;transition:width .1s;}
+.back-top{position:fixed;bottom:22px;right:18px;z-index:200;width:46px;height:46px;border-radius:50%;background:var(--verde);color:#fff;border:none;font-size:18px;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .3s;box-shadow:0 4px 16px rgba(0,0,0,.28);}
+.back-top.visible{opacity:1;pointer-events:all;}
+#toast{visibility:hidden;min-width:250px;margin-left:-125px;background:var(--preto);color:var(--creme);text-align:center;border-radius:50px;padding:16px;position:fixed;z-index:300;left:50%;bottom:30px;font-size:14px;}
+#toast.show{visibility:visible;}
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:var(--verde-light) #f8fafc;}
+.input-green{background:#e8f5ee;text-align:center;font-weight:700;border:none;outline:none;width:100%;padding:8px 4px;font-size:.85rem;}
+.input-green:focus{background:#d4eddf;box-shadow:inset 0 0 0 2px var(--verde);}
+.input-meta{background:#e8f5ee;border:1px solid #b8d8c5;border-radius:8px;padding:10px 12px;font-weight:600;width:100%;outline:none;}
+.input-meta:focus{border-color:var(--verde);}
+.th-yellow{background:var(--amarelo);color:var(--preto);font-weight:800;font-size:10px;text-transform:uppercase;}
+.th-blue{background:#1e3a5f;color:#fff;font-weight:700;font-size:10px;text-transform:uppercase;}
+.th-red{background:var(--laranja);color:#fff;font-weight:700;font-size:10px;}
+.res-label{background:var(--laranja);color:#fff;font-weight:700;font-size:11px;padding:8px 10px;}
+.res-value{background:#e8f5ee;font-weight:700;font-size:13px;padding:8px 10px;text-align:right;}
+.res-input{background:#e8f5ee;border:1px solid #b8d8c5;font-weight:700;font-size:13px;padding:6px 8px;text-align:right;width:100%;outline:none;}
+.res-input:focus{border-color:var(--verde);}
+.pct-row{display:flex;justify-content:space-between;padding:6px 10px;font-size:12px;border-bottom:1px solid #f0f0f0;}
+.pct-row.highlight{background:#fff9c4;font-weight:800;}
+.assess-tab{padding:8px 16px;border-radius:8px 8px 0 0;font-size:12px;font-weight:700;white-space:nowrap;cursor:pointer;background:#e5e7eb;color:#666;border:none;}
+.assess-tab.active{background:var(--verde);color:#fff;}
+.assess-tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:0;scrollbar-width:none;}
+.assess-tabs::-webkit-scrollbar{display:none;}
+.chart-wrap{height:260px;max-width:100%;}
+.evolution-grid{display:grid;grid-template-columns:repeat(1,minmax(0,1fr));gap:1rem;}
+@media(min-width:640px){.evolution-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(min-width:1024px){.evolution-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
+.chart-card{background:#fff;border-radius:1rem;box-shadow:0 4px 24px rgba(26,26,26,.06);border:1px solid rgba(74,124,98,.12);padding:1rem 1rem .75rem;transition:box-shadow .2s,transform .2s;}
+.chart-card:hover{box-shadow:0 8px 32px rgba(74,124,98,.14);transform:translateY(-2px);}
+.chart-card-title{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#666;margin-bottom:.5rem;display:flex;align-items:center;gap:.5rem;}
+.chart-card-title .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.chart-card-canvas{height:200px;position:relative;}
+.evolution-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:1rem;box-shadow:0 4px 24px rgba(26,26,26,.06);border:1px solid rgba(74,124,98,.12);}
+.evolution-table{width:100%;border-collapse:collapse;font-size:.75rem;min-width:640px;}
+.evolution-table th{background:var(--verde);color:#fff;font-weight:800;padding:10px 12px;text-align:center;white-space:nowrap;font-size:.65rem;text-transform:uppercase;letter-spacing:.04em;}
+.evolution-table th:first-child{text-align:left;min-width:180px;}
+.evolution-table td{padding:8px 12px;text-align:center;font-weight:700;border-bottom:1px solid #f0f0f0;}
+.evolution-table td:first-child{text-align:left;background:#fafaf8;font-weight:700;color:#444;font-size:.7rem;}
+.evolution-table tr:last-child td{border-bottom:none;}
+.evolution-table .val-null{color:#ccc;font-weight:400;}
+.evolution-table .row-highlight td{background:#fffde7;}
+@media(max-width:1023px){.layout-grid{display:flex;flex-direction:column;gap:1.5rem;}}
+</style>
+</head>
+<body class="overflow-x-hidden">
+
+<div id="coach-gate">
+  <div class="bg-white p-8 rounded-3xl max-w-sm w-full shadow-2xl text-center">
+    <span class="font-black text-4xl" style="font-family:'Playfair Display',serif;font-style:italic">JN</span>
+    <h2 class="text-xl font-black mt-4 mb-2">Área da Profissional</h2>
+    <p class="text-gray-500 text-sm mb-6">Planilha do Teste de Conconi na Esteira</p>
+    <input type="password" id="coach-pin" placeholder="Senha" class="w-full text-center font-bold px-5 py-4 rounded-xl border-2 mb-4 outline-none">
+    <button onclick="verifyCoachPin()" class="w-full py-4 rounded-xl font-black text-white" style="background:var(--verde)">ENTRAR</button>
+    <p id="pin-error" class="text-red-500 text-xs mt-4 hidden font-semibold">Senha incorreta.</p>
+  </div>
+</div>
+
+<div id="app-content" class="locked">
+<div class="progress-bar no-print"><div class="progress-fill" id="progress"></div></div>
+<button class="back-top no-print" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+<div id="toast"></div>
+
+<header class="text-white shadow-lg sticky top-0 z-50 no-print" style="background:#18181B">
+  <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+    <button id="mobile-menu-btn" class="lg:hidden p-2 rounded-full hover:bg-white/10"><i data-lucide="menu" class="w-7 h-7"></i></button>
+    <div class="text-center flex-grow lg:flex-grow-0">
+      <p class="font-black text-xl lg:text-lg" style="font-family:'Playfair Display',serif;font-style:italic;color:var(--creme)">Profª Joyce Neres</p>
+      <p class="text-[10px] tracking-widest uppercase" style="color:var(--verde-light)">Teste Conconi · Esteira</p>
+    </div>
+    <button onclick="recalculate()" class="hidden lg:block px-4 py-2 rounded-full text-xs font-bold text-white" style="background:var(--verde)">Recalcular</button>
+  </div>
+</header>
+
+<section class="relative text-white py-12 overflow-hidden no-print" style="background:#18181B">
+  <div class="container mx-auto px-4 text-center relative z-10">
+    <h1 class="text-3xl md:text-5xl font-black mb-3" style="font-family:'Playfair Display',serif;font-style:italic">PLANILHA <span style="color:var(--verde-light)">CONCONI</span></h1>
+    <p class="text-gray-400 text-sm max-w-xl mx-auto">Foco em <strong class="text-white">VVO2máx</strong>: preencha a <strong class="text-white">PSE</strong> a cada minuto. A FC é opcional. Os resultados calculam pela velocidade do último estágio (com interpolação se parar no meio).</p>
+  </div>
+</section>
+
+<div class="container mx-auto px-4 py-8 max-w-7xl">
+
+<!-- ALUNA + AVALIAÇÕES -->
+<section id="aluna" class="mb-8">
+  <h2 class="text-xl font-bold mb-4 section-title">Aluna e avaliação</h2>
+  <div class="bg-white rounded-2xl shadow-lg p-5 border-t-4" style="border-color:var(--verde)">
+    <div class="flex flex-col md:flex-row gap-4 mb-4">
+      <div class="flex-grow">
+        <label class="text-xs font-bold uppercase text-gray-500 mb-1 block">Aluna</label>
+        <div class="flex gap-2">
+          <select id="student-select" onchange="switchStudent(this.value)" class="flex-grow px-4 py-3 rounded-xl border-2 font-bold outline-none"></select>
+          <input type="text" id="new-student-name" placeholder="Nova aluna..." class="px-4 py-3 rounded-xl border-2 font-semibold w-36 md:w-48">
+          <button onclick="addStudent()" class="px-4 py-3 rounded-xl font-bold text-white shrink-0" style="background:var(--verde)">+</button>
+        </div>
+      </div>
+    </div>
+    <div class="assess-tabs" id="assess-tabs"></div>
+    <button onclick="addAssessment()" class="mt-2 text-xs font-bold underline" style="color:var(--verde)">+ Nova avaliação</button>
+  </div>
+</section>
+
+<!-- DADOS PESSOAIS (igual planilha) -->
+<section id="dados" class="mb-8">
+  <h2 class="text-xl font-bold mb-4 section-title">Dados da avaliação</h2>
+  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 bg-white rounded-2xl shadow p-5">
+    <div><label class="text-[10px] font-bold uppercase text-gray-500">Nome</label><input type="text" id="fld-nome" class="input-meta mt-1" oninput="onFieldChange()"></div>
+    <div><label class="text-[10px] font-bold uppercase text-gray-500">Sexo</label>
+      <select id="fld-sexo" class="input-meta mt-1" onchange="onFieldChange()"><option value="">—</option><option value="F">F</option><option value="M">M</option></select>
+    </div>
+    <div><label class="text-[10px] font-bold uppercase text-gray-500">Idade</label><input type="number" id="fld-idade" class="input-meta mt-1" oninput="onFieldChange()"></div>
+    <div><label class="text-[10px] font-bold uppercase text-gray-500">Peso (kg)</label><input type="number" step="0.1" id="fld-peso" class="input-meta mt-1" oninput="onFieldChange()"></div>
+    <div><label class="text-[10px] font-bold uppercase text-gray-500">Nível de treino</label><input type="text" id="fld-nivel" class="input-meta mt-1" oninput="onFieldChange()"></div>
+    <div><label class="text-[10px] font-bold uppercase text-gray-500">Data da avaliação</label><input type="date" id="fld-data" class="input-meta mt-1" onchange="onFieldChange()"></div>
+  </div>
+  <details class="mt-3 bg-white rounded-xl shadow p-4 text-sm">
+    <summary class="font-bold cursor-pointer text-gray-600">FC opcional (se tiver monitor cardíaco)</summary>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+      <div><label class="text-[10px] font-bold uppercase text-gray-500">FC repouso</label><input type="number" id="fld-fc-rest" class="input-meta mt-1" oninput="onFieldChange()"></div>
+      <div><label class="text-[10px] font-bold uppercase text-gray-500">FC L1</label><input type="number" id="fld-fc-l1" class="input-meta mt-1" oninput="onFieldChange()"></div>
+      <div><label class="text-[10px] font-bold uppercase text-gray-500">FC L2</label><input type="number" id="fld-fc-l2" class="input-meta mt-1" oninput="onFieldChange()"></div>
+    </div>
+  </details>
+</section>
+
+<!-- LAYOUT PRINCIPAL: TABELA + RESULTADOS + % iVO2 -->
+<div class="layout-grid grid lg:grid-cols-12 gap-6 mb-8">
+
+  <!-- TABELA TESTE -->
+  <div class="lg:col-span-5" id="tabela">
+    <div class="table-scroll rounded-xl shadow-xl border border-gray-200">
+      <table class="w-full border-collapse text-sm min-w-[320px]">
+        <thead>
+          <tr><th colspan="5" class="th-yellow p-3 text-center text-sm">TESTE DE CONCONI</th></tr>
+          <tr>
+            <th class="th-blue p-2">Fase</th>
+            <th class="th-blue p-2">Tempo</th>
+            <th class="th-blue p-2">Vel (km/h)</th>
+            <th class="th-blue p-2">FC <span class="opacity-70">(opc.)</span></th>
+            <th class="th-blue p-2">PSE *</th>
+          </tr>
+        </thead>
+        <tbody id="stages-body"></tbody>
+      </table>
+    </div>
+    <p class="text-xs text-gray-400 mt-2">* PSE é obrigatória nos estágios de esforço. Marque onde o teste terminou abaixo.</p>
+    <div class="bg-white rounded-xl shadow p-4 mt-3 border border-gray-100">
+      <p class="text-xs font-bold uppercase text-gray-500 mb-3">Onde o teste terminou?</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label class="text-[10px] font-bold text-gray-500">Estágio final</label>
+          <select id="fld-stop-stage" class="input-meta mt-1" onchange="onFieldChange()"></select>
+        </div>
+        <div>
+          <label class="text-[10px] font-bold text-gray-500">% do estágio concluído</label>
+          <input type="number" id="fld-stage-pct" class="input-meta mt-1" min="0" max="100" value="100" oninput="onFieldChange()">
+          <p class="text-[10px] text-gray-400 mt-1">100% = estágio completo. &lt;100% aplica interpolação de VVO2máx.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULTADOS -->
+  <div class="lg:col-span-4" id="resultados">
+    <div class="rounded-xl shadow-xl overflow-hidden border border-gray-200">
+      <table class="w-full border-collapse text-sm">
+        <tbody id="results-body"></tbody>
+      </table>
+    </div>
+    <div class="mt-4 bg-white rounded-xl shadow p-4">
+      <p class="text-xs font-bold uppercase text-gray-500 mb-2">Prescrição por % VVO2máx</p>
+      <div id="prescription-zones" class="text-sm space-y-2"></div>
+    </div>
+    <div class="mt-4 bg-white rounded-xl shadow p-4">
+      <p class="text-xs font-bold uppercase text-gray-500 mb-2" id="chart-title">Gráfico PSE × Velocidade</p>
+      <div class="chart-wrap"><canvas id="hr-chart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- TABELA % iVO2máx -->
+  <div class="lg:col-span-3">
+    <div class="rounded-xl shadow-xl overflow-hidden border border-gray-200 bg-white">
+      <div class="th-blue p-3 text-center text-xs font-bold">% VVO2máx → KM/H</div>
+      <div id="intensity-table" class="max-h-[520px] overflow-y-auto"></div>
+    </div>
+  </div>
+</div>
+
+<!-- GRÁFICOS DE EVOLUÇÃO -->
+<section id="graficos" class="mb-12">
+  <h2 class="text-xl font-bold mb-2 section-title">Gráficos de evolução</h2>
+  <p class="text-sm text-gray-500 mb-5">Comparativo entre todas as avaliações da aluna selecionada — como na aba &quot;gráficos&quot; da planilha, com visual aprimorado.</p>
+  <div id="evolution-empty" class="hidden bg-white rounded-2xl shadow p-8 text-center text-gray-400 text-sm">
+  </div>
+  <div id="evolution-content" class="space-y-6">
+    <div class="evolution-table-wrap bg-white">
+      <table class="evolution-table" id="evolution-table">
+        <thead id="evolution-thead"></thead>
+        <tbody id="evolution-tbody"></tbody>
+      </table>
+    </div>
+    <div class="evolution-grid" id="evolution-charts"></div>
+  </div>
+</section>
+
+<!-- ENVIAR -->
+<section id="enviar" class="mb-12">
+  <h2 class="text-xl font-bold mb-4 section-title">Enviar para a aluna</h2>
+  <div class="bg-white rounded-2xl shadow-xl p-6 border-t-4 max-w-xl" style="border-color:var(--verde)">
+    <label class="text-xs font-bold uppercase text-gray-500 mb-2 block">WhatsApp da aluna (opcional)</label>
+    <input type="tel" id="fld-whatsapp" placeholder="73991040064" class="input-meta mb-4" oninput="onFieldChange()">
+    <div class="flex flex-col gap-3">
+      <button onclick="sendWhatsApp()" class="w-full py-4 rounded-xl font-black text-white flex justify-center items-center gap-2" style="background:#25D366"><i data-lucide="message-circle" class="w-5 h-5"></i> ENVIAR PELO WHATSAPP</button>
+      <button onclick="generatePDF()" class="w-full py-4 rounded-xl font-bold text-white flex justify-center items-center gap-2" style="background:var(--preto)"><i data-lucide="download" class="w-5 h-5"></i> BAIXAR PDF</button>
+      <button onclick="copyReport()" class="w-full py-4 rounded-xl font-bold bg-gray-100 flex justify-center items-center gap-2"><i data-lucide="copy" class="w-5 h-5"></i> COPIAR RELATÓRIO</button>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<footer class="text-white text-center py-10 border-t-4" style="background:#000;border-color:var(--verde)">
+  <p class="text-xl font-black" style="font-family:'Playfair Display',serif;font-style:italic;color:var(--creme)">Profª Joyce Neres</p>
+  <p class="text-xs mt-4 opacity-30">© 2026 · #VAMOSJUNTAS</p>
+</footer>
+</div>
+
+<script>
+var COACH_PIN='joyce2026';
+var COACH_KEY='tc_coach_auth';
+var STORAGE_KEY='tc_planilha_v2';
+var activeStudentId=null;
+var activeAssessmentId=null;
+var currentResults=null;
+var hrChart=null;
+var evolutionCharts={};
+
+function initLucide(){if(typeof lucide!=='undefined')lucide.createIcons();}
+
+function verifyCoachPin(){
+  if(document.getElementById('coach-pin').value===COACH_PIN){
+    sessionStorage.setItem(COACH_KEY,'1');
+    document.getElementById('coach-gate').classList.add('hidden');
+    document.getElementById('app-content').classList.remove('locked');
+    boot();
+  }else document.getElementById('pin-error').classList.remove('hidden');
+}
+
+function loadStore(){
+  try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');}catch(e){return{};}
+}
+function saveStore(d){localStorage.setItem(STORAGE_KEY,JSON.stringify(d));}
+
+function getDefaultStore(){
+  var id=String(Date.now());
+  return{
+    students:[{id:id,nome:'Vitória'}],
+    assessments:{[id]:[{id:'a1',label:'Avaliação 1',meta:{},stages:ConconiCalc.generateProtocolStages()}]},
+    activeStudentId:id,
+    activeAssessmentId:'a1'
+  };
+}
+
+function boot(){
+  var store=loadStore();
+  if(!store.students||!store.students.length){
+    store=getDefaultStore();
+    saveStore(store);
+  }
+  activeStudentId=store.activeStudentId||store.students[0].id;
+  activeAssessmentId=store.activeAssessmentId||getAssessments(activeStudentId)[0].id;
+  renderStudentSelect();
+  renderAssessmentTabs();
+  loadAssessment();
+  initScroll();
+  initLucide();
+}
+
+function getAssessments(sid){
+  var store=loadStore();
+  return store.assessments[sid]||[];
+}
+
+function getActiveAssessment(){
+  return getAssessments(activeStudentId).find(function(a){return a.id===activeAssessmentId;});
+}
+
+function renderStudentSelect(){
+  var store=loadStore();
+  var sel=document.getElementById('student-select');
+  sel.innerHTML=store.students.map(function(s){
+    return '<option value="'+s.id+'"'+(s.id===activeStudentId?' selected':'')+'>'+s.nome+'</option>';
+  }).join('');
+  var cur=getActiveAssessment();
+  if(cur&&cur.meta.nome)document.getElementById('fld-nome').value=cur.meta.nome;
+  else{
+    var st=store.students.find(function(s){return s.id===activeStudentId;});
+    if(st)document.getElementById('fld-nome').value=st.nome;
+  }
+}
+
+function renderAssessmentTabs(){
+  var tabs=document.getElementById('assess-tabs');
+  var list=getAssessments(activeStudentId);
+  tabs.innerHTML=list.map(function(a){
+    return '<button type="button" class="assess-tab'+(a.id===activeAssessmentId?' active':'')+'" onclick="switchAssessment(\''+a.id+'\')">'+a.label+'</button>';
+  }).join('');
+}
+
+function switchStudent(id){
+  persistAssessment();
+  activeStudentId=id;
+  var store=loadStore();
+  store.activeStudentId=id;
+  var list=getAssessments(id);
+  if(!list.length){
+    var aid='a'+Date.now();
+    list.push({id:aid,label:'Avaliação 1',meta:{},stages:ConconiCalc.generateProtocolStages()});
+    store.assessments[id]=list;
+    activeAssessmentId=aid;
+  }else activeAssessmentId=list[0].id;
+  store.activeAssessmentId=activeAssessmentId;
+  saveStore(store);
+  renderStudentSelect();
+  renderAssessmentTabs();
+  loadAssessment();
+  showToast('Aluna: '+store.students.find(function(s){return s.id===id;}).nome);
+}
+
+function addStudent(){
+  var name=document.getElementById('new-student-name').value.trim();
+  if(!name){showToast('Digite o nome.');return;}
+  persistAssessment();
+  var store=loadStore();
+  var id=String(Date.now());
+  var aid='a'+Date.now();
+  store.students.push({id:id,nome:name});
+  store.assessments[id]=[{id:aid,label:'Avaliação 1',meta:{nome:name},stages:ConconiCalc.generateProtocolStages()}];
+  store.activeStudentId=id;
+  store.activeAssessmentId=aid;
+  saveStore(store);
+  activeStudentId=id;
+  activeAssessmentId=aid;
+  document.getElementById('new-student-name').value='';
+  renderStudentSelect();
+  renderAssessmentTabs();
+  loadAssessment();
+}
+
+function addAssessment(){
+  persistAssessment();
+  var store=loadStore();
+  var list=getAssessments(activeStudentId);
+  var n=list.length+1;
+  var aid='a'+Date.now();
+  list.push({id:aid,label:'Avaliação '+n,meta:{nome:document.getElementById('fld-nome').value},stages:ConconiCalc.generateProtocolStages()});
+  store.assessments[activeStudentId]=list;
+  activeAssessmentId=aid;
+  store.activeAssessmentId=aid;
+  saveStore(store);
+  renderAssessmentTabs();
+  loadAssessment();
+}
+
+function switchAssessment(aid){
+  persistAssessment();
+  activeAssessmentId=aid;
+  var store=loadStore();
+  store.activeAssessmentId=aid;
+  saveStore(store);
+  renderAssessmentTabs();
+  loadAssessment();
+}
+
+function getMetaFromForm(){
+  var dateVal=document.getElementById('fld-data').value;
+  var dateFmt='';
+  if(dateVal){var p=dateVal.split('-');dateFmt=p[2]+'/'+p[1]+'/'+p[0];}
+  return{
+    nome:document.getElementById('fld-nome').value.trim(),
+    sexo:document.getElementById('fld-sexo').value,
+    idade:document.getElementById('fld-idade').value,
+    peso:document.getElementById('fld-peso').value,
+    nivelTreino:document.getElementById('fld-nivel').value,
+    dataAvaliacao:dateFmt,
+    testDate:dateFmt,
+    fcRest:document.getElementById('fld-fc-rest').value,
+    fcL1:document.getElementById('fld-fc-l1').value,
+    fcL2:document.getElementById('fld-fc-l2').value,
+    stopStage:document.getElementById('fld-stop-stage').value,
+    stagePctComplete:document.getElementById('fld-stage-pct').value,
+    whatsapp:document.getElementById('fld-whatsapp').value,
+    studentName:document.getElementById('fld-nome').value.trim()
+  };
+}
+
+function getStagesFromTable(){
+  var rows=document.querySelectorAll('#stages-body tr');
+  var stages=[];
+  rows.forEach(function(tr){
+    var stg=parseInt(tr.dataset.stage,10);
+    stages.push({
+      stage:stg,
+      tempo:stg,
+      speed:tr.dataset.speed||ConconiCalc.speedForStage(stg),
+      phase:tr.dataset.phase,
+      hr:tr.querySelector('[data-f="hr"]').value,
+      pse:tr.querySelector('[data-f="pse"]').value
+    });
+  });
+  return stages;
+}
+
+function persistAssessment(){
+  if(!activeStudentId||!activeAssessmentId)return;
+  var store=loadStore();
+  var list=getAssessments(activeStudentId);
+  var idx=list.findIndex(function(a){return a.id===activeAssessmentId;});
+  if(idx<0)return;
+  var meta=getMetaFromForm();
+  list[idx].meta=meta;
+  list[idx].stages=getStagesFromTable().length?getStagesFromTable():list[idx].stages;
+  store.assessments[activeStudentId]=list;
+  saveStore(store);
+}
+
+function loadAssessment(){
+  var a=getActiveAssessment();
+  if(!a){
+    var store=loadStore();
+    var aid='a'+Date.now();
+    store.assessments[activeStudentId]=[{id:aid,label:'Avaliação 1',meta:{},stages:ConconiCalc.generateProtocolStages()}];
+    activeAssessmentId=aid;
+    saveStore(store);
+    a=store.assessments[activeStudentId][0];
+  }
+  var m=a.meta||{};
+  document.getElementById('fld-nome').value=m.nome||'';
+  document.getElementById('fld-sexo').value=m.sexo||'';
+  document.getElementById('fld-idade').value=m.idade||'';
+  document.getElementById('fld-peso').value=m.peso||'';
+  document.getElementById('fld-nivel').value=m.nivelTreino||'';
+  document.getElementById('fld-fc-rest').value=m.fcRest||'';
+  document.getElementById('fld-fc-l1').value=m.fcL1||'';
+  document.getElementById('fld-fc-l2').value=m.fcL2||'';
+  document.getElementById('fld-whatsapp').value=m.whatsapp||'';
+  document.getElementById('fld-stage-pct').value=m.stagePctComplete!=null?m.stagePctComplete:100;
+  if(m.dataAvaliacao){
+    var p=m.dataAvaliacao.split('/');
+    if(p.length===3)document.getElementById('fld-data').value=p[2]+'-'+p[1]+'-'+p[0];
+  }else document.getElementById('fld-data').value='';
+  renderStagesTable(a.stages&&a.stages.length?a.stages:ConconiCalc.generateProtocolStages());
+  updateStopStageSelect(a.stages||ConconiCalc.generateProtocolStages(),m);
+  if(m.stopStage)document.getElementById('fld-stop-stage').value=m.stopStage;
+  recalculate();
+}
+
+function updateStopStageSelect(stages,meta){
+  var sel=document.getElementById('fld-stop-stage');
+  if(!sel)return;
+  var cur=sel.value;
+  var html='';
+  stages.forEach(function(s){
+    if(s.stage<4)return;
+    var spd=s.speed!=null?s.speed:ConconiCalc.speedForStage(s.stage);
+    html+='<option value="'+s.stage+'">Estágio '+s.stage+' ('+spd+' km/h)</option>';
+  });
+  sel.innerHTML=html||'<option value="">—</option>';
+  var suggested=ConconiCalc.suggestStopStage(stages);
+  if(meta&&meta.stopStage)sel.value=meta.stopStage;
+  else if(suggested)sel.value=String(suggested);
+  else if(cur)sel.value=cur;
+}
+
+function renderStagesTable(stages){
+  var tbody=document.getElementById('stages-body');
+  var html='';
+  stages.forEach(function(s){
+    var stg=s.stage||s.tempo;
+    var spd=s.speed!=null?s.speed:ConconiCalc.speedForStage(stg);
+    var ph=s.phase||ConconiCalc.phaseForStage(stg);
+    html+='<tr data-stage="'+stg+'" data-phase="'+ph+'" data-speed="'+spd+'">';
+    if(stg===1)html+='<td rowspan="3" class="p-2 text-center text-[10px] font-bold bg-gray-50 align-middle border-r">AQUECIMENTO</td>';
+    if(stg===4)html+='<td rowspan="13" class="p-2 text-center text-[10px] font-bold bg-orange-50 align-middle border-r text-orange-800">ESFORÇO</td>';
+    html+='<td class="p-2 text-center font-bold border-b">'+stg+'</td>';
+    html+='<td class="p-2 text-center font-bold border-b bg-gray-50">'+spd+'</td>';
+    html+='<td class="p-1 border-b"><input type="number" data-f="hr" class="input-green" value="'+(s.hr||'')+'" oninput="onFieldChange()"></td>';
+    html+='<td class="p-1 border-b"><input type="number" data-f="pse" class="input-green" value="'+(s.pse||'')+'" oninput="onFieldChange()"></td>';
+    html+='</tr>';
+  });
+  tbody.innerHTML=html;
+}
+
+function onFieldChange(){
+  persistAssessment();
+  recalculate();
+}
+
+function recalculate(){
+  var meta=getMetaFromForm();
+  var stages=getStagesFromTable();
+  if(!stages.length)stages=ConconiCalc.generateProtocolStages();
+  updateStopStageSelect(stages,meta);
+  var suggested=ConconiCalc.suggestStopStage(stages);
+  var pct=ConconiCalc.parseNum(document.getElementById('fld-stage-pct').value);
+  if(suggested&&(pct===null||pct>=100)){
+    document.getElementById('fld-stop-stage').value=String(suggested);
+  }
+  meta=getMetaFromForm();
+  currentResults=ConconiCalc.calculateResults(meta,stages);
+  renderResultsPanel(meta,currentResults);
+  renderIntensityTable(currentResults);
+  renderPrescriptionZones(currentResults);
+  renderChart(currentResults);
+  renderEvolutionSection();
+  persistAssessment();
+}
+
+function renderResultsPanel(meta,r){
+  var rows=[
+    ['VVO2máx (velocidade)',r.vvo2max!=null?ConconiCalc.formatNum(r.vvo2max,2)+' km/h':'—'],
+    ['Método',r.vvo2Detail?(r.vvo2Detail.method==='interpolado'?'Interpolação ('+ConconiCalc.formatNum(r.vvo2Detail.pctComplete,0)+'% do estág. '+r.vvo2Detail.stopStage+')':'Estágio '+r.vvo2Detail.stopStage+' completo'):'—'],
+    ['PSE máxima do teste',r.pseMax!=null?r.pseMax:'—'],
+    ['VO2máx (ml.kg.min)',r.vo2ml!=null?ConconiCalc.formatNum(r.vo2ml,2):'—'],
+    ['VO2máx (L.min)',r.vo2L!=null?ConconiCalc.formatNum(r.vo2L,3):'—'],
+    ['METs',r.mets!=null?ConconiCalc.formatNum(r.mets,2):'—']
+  ];
+  if(r.hrAvailable){
+    rows.push(['FC máxima do teste',r.fcMax!=null?r.fcMax+' bpm':'—']);
+    rows.push(['FC repouso',r.fcRest!=null?r.fcRest+' bpm':'—']);
+    rows.push(['Índice de FC',r.indiceFC!=null?ConconiCalc.formatNum(r.indiceFC,2):'—']);
+    rows.push(['FC L1 (% FC máx)',r.fcL1pct!=null?ConconiCalc.formatNum(r.fcL1pct,2)+'%':'—']);
+    rows.push(['FC L2 (% FC máx)',r.fcL2pct!=null?ConconiCalc.formatNum(r.fcL2pct,2)+'%':'—']);
+  }
+  document.getElementById('results-body').innerHTML=rows.map(function(row){
+    var highlight=row[0].indexOf('VVO2')===0?' style="background:#fff9c4"':'';
+    return '<tr'+highlight+'><td class="res-label">'+row[0]+'</td><td class="res-value">'+row[1]+'</td></tr>';
+  }).join('');
+}
+
+function renderPrescriptionZones(r){
+  var el=document.getElementById('prescription-zones');
+  if(!el||!r.prescriptionZones||!r.prescriptionZones.length){if(el)el.innerHTML='<p class="text-gray-400 text-xs">Preencha a PSE nos estágios de esforço.</p>';return;}
+  el.innerHTML=r.prescriptionZones.map(function(z){
+    return '<div class="flex items-center gap-2 py-1 border-b border-gray-100"><span class="w-2 h-2 rounded-full shrink-0" style="background:'+z.color+'"></span><span class="flex-grow text-xs font-semibold">'+z.name+'</span><span class="text-xs font-bold" style="color:var(--verde-dark)">'+ConconiCalc.formatNum(z.speedMin,2)+'–'+ConconiCalc.formatNum(z.speedMax,2)+' km/h</span></div>';
+  }).join('');
+}
+
+function renderIntensityTable(r){
+  var el=document.getElementById('intensity-table');
+  if(!r.intensityTable){el.innerHTML='';return;}
+  el.innerHTML=r.intensityTable.map(function(row){
+    var cls='pct-row'+(row.pct===100?' highlight':'');
+    return '<div class="'+cls+'"><span class="font-bold">'+row.pct+'%</span><span>'+(row.kmh!=null?ConconiCalc.formatNum(row.kmh,2)+' km/h':'—')+'</span></div>';
+  }).join('');
+}
+
+function chartBaseOptions(yLabel,unit){
+  return{
+    responsive:true,
+    maintainAspectRatio:false,
+    interaction:{mode:'index',intersect:false},
+    plugins:{
+      legend:{display:false},
+      tooltip:{
+        backgroundColor:'rgba(26,26,26,.92)',
+        titleFont:{family:'Montserrat',weight:'700',size:11},
+        bodyFont:{family:'Montserrat',size:12},
+        padding:12,
+        cornerRadius:10,
+        callbacks:{
+          label:function(ctx){
+            var v=ctx.parsed.y;
+            if(v==null||!Number.isFinite(v))return '—';
+            return ConconiCalc.formatNum(v,ctx.dataset._decimals!=null?ctx.dataset._decimals:2)+(unit?' '+unit:'');
+          }
+        }
+      }
+    },
+    scales:{
+      x:{
+        grid:{display:false},
+        ticks:{font:{family:'Montserrat',size:10,weight:'600'},color:'#888',maxRotation:0},
+        border:{display:false}
+      },
+      y:{
+        title:{display:!!yLabel,text:yLabel||'',font:{family:'Montserrat',size:10,weight:'700'},color:'#888'},
+        grid:{color:'rgba(0,0,0,.04)'},
+        ticks:{font:{family:'Montserrat',size:10},color:'#888'},
+        border:{display:false},
+        beginAtZero:false,
+        grace:'8%'
+      }
+    }
+  };
+}
+
+function hexToRgba(hex,a){
+  var h=hex.replace('#','');
+  if(h.length===3)h=h.split('').map(function(c){return c+c;}).join('');
+  var r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
+  return 'rgba('+r+','+g+','+b+','+a+')';
+}
+
+function makeGradient(ctx,area,color){
+  var g=ctx.createLinearGradient(0,area.top,0,area.bottom);
+  g.addColorStop(0,hexToRgba(color,.32));
+  g.addColorStop(1,hexToRgba(color,.03));
+  return g;
+}
+
+function createLineChart(canvasId,labels,data,opts){
+  var el=document.getElementById(canvasId);
+  if(!el)return null;
+  var ctx=el.getContext('2d');
+  var color=opts.color||'#4A7C62';
+  var chart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:labels,
+      datasets:[{
+        label:opts.label,
+        data:data,
+        _decimals:opts.decimals,
+        borderColor:color,
+        backgroundColor:opts.fill?function(c){
+          var area=c.chart.chartArea;
+          if(!area)return color+'22';
+          return makeGradient(ctx,area,color);
+        }:color,
+        fill:!!opts.fill,
+        tension:.4,
+        borderWidth:2.5,
+        pointRadius:labels.length<=6?6:4,
+        pointHoverRadius:8,
+        pointBackgroundColor:'#fff',
+        pointBorderColor:color,
+        pointBorderWidth:2,
+        spanGaps:false
+      }]
+    },
+    options:chartBaseOptions(opts.yLabel,opts.unit)
+  });
+  return chart;
+}
+
+function renderChart(r){
+  var ctx=document.getElementById('hr-chart');
+  var title=document.getElementById('chart-title');
+  if(!ctx)return;
+  if(hrChart)hrChart.destroy();
+  if(!r.chart||!r.chart.labels.length)return;
+  var useHr=r.chart.mode==='hr'&&r.chart.hr.length;
+  if(title)title.textContent=useHr?'Gráfico FC × Velocidade':'Gráfico PSE × Velocidade';
+  var data=useHr?r.chart.hr:r.chart.pse;
+  var labels=useHr?r.chart.labels:r.chart.pseLabels;
+  hrChart=createLineChart('hr-chart',labels,data,{
+    label:useHr?'FC (bpm)':'PSE',
+    color:'#4A7C62',
+    fill:true,
+    yLabel:useHr?'FC (bpm)':'PSE',
+    unit:useHr?'bpm':'',
+    decimals:useHr?0:0
+  });
+}
+
+function getEvolutionSnapshots(){
+  var list=getAssessments(activeStudentId);
+  return list.map(function(a,idx){
+    var meta=a.meta||{};
+    var stages=a.stages&&a.stages.length?a.stages:ConconiCalc.generateProtocolStages();
+    var r=ConconiCalc.calculateResults(meta,stages);
+    var colLabel=a.label||('Avaliação '+(idx+1));
+    if(meta.dataAvaliacao)colLabel+='\n'+meta.dataAvaliacao;
+    return{label:colLabel,shortLabel:a.label||('Av. '+(idx+1)),meta:meta,results:r,hasData:!!r.valid};
+  });
+}
+
+function destroyEvolutionCharts(){
+  Object.keys(evolutionCharts).forEach(function(k){
+    if(evolutionCharts[k])evolutionCharts[k].destroy();
+  });
+  evolutionCharts={};
+}
+
+function renderEvolutionSection(){
+  var emptyEl=document.getElementById('evolution-empty');
+  var contentEl=document.getElementById('evolution-content');
+  if(!emptyEl||!contentEl)return;
+
+  var snaps=getEvolutionSnapshots();
+  var withData=snaps.filter(function(s){return s.hasData;});
+
+  if(!snaps.length){
+    emptyEl.classList.remove('hidden');
+    contentEl.classList.add('hidden');
+    emptyEl.textContent='Nenhuma avaliação cadastrada para esta aluna.';
+    destroyEvolutionCharts();
+    return;
+  }
+
+  emptyEl.classList.add('hidden');
+  contentEl.classList.remove('hidden');
+
+  var anyHr=snaps.some(function(s){return s.results.hrAvailable;});
+
+  var metrics=[
+    {key:'vvo2max',label:'VVO2máx',unit:'km/h',decimals:2,highlight:true,color:'#4A7C62'},
+    {key:'pseMax',label:'PSE máxima',unit:'',decimals:0,color:'#E85D04'},
+    {key:'mets',label:'METs',unit:'',decimals:2,color:'#1e3a5f'},
+    {key:'vo2ml',label:'VO2máx (ml.kg.min)',unit:'',decimals:2,color:'#2471A3'},
+    {key:'vo2L',label:'VO2máx (L.min)',unit:'',decimals:3,color:'#5B4FCF'}
+  ];
+  if(anyHr){
+    metrics.push(
+      {key:'fcMax',label:'FC máxima',unit:'bpm',decimals:0,color:'#2d4f3e'},
+      {key:'fcRest',label:'FC repouso',unit:'bpm',decimals:0,color:'#8aba9e'},
+      {key:'indiceFC',label:'Índice de FC',unit:'',decimals:2,color:'#6B4C9A'},
+      {key:'fcL1',label:'FC L1',unit:'bpm',decimals:0,color:'#9B59B6'},
+      {key:'fcL2',label:'FC L2',unit:'bpm',decimals:0,color:'#D4611A'}
+    );
+  }
+
+  var thead=document.getElementById('evolution-thead');
+  var tbody=document.getElementById('evolution-tbody');
+  thead.innerHTML='<tr><th>Parâmetro</th>'+snaps.map(function(s){
+    return '<th>'+s.shortLabel.replace(/</g,'&lt;')+(s.meta.dataAvaliacao?'<br><span style="font-weight:500;opacity:.85;font-size:9px">'+s.meta.dataAvaliacao+'</span>':'')+'</th>';
+  }).join('')+'</tr>';
+
+  tbody.innerHTML=metrics.map(function(m){
+    var rowCls=m.highlight?' class="row-highlight"':'';
+    return '<tr'+rowCls+'><td>'+m.label+'</td>'+snaps.map(function(s){
+      var v=s.results[m.key];
+      if(v==null||!Number.isFinite(v))return '<td class="val-null">—</td>';
+      var txt=ConconiCalc.formatNum(v,m.decimals);
+      if(m.unit)txt+=' <span style="font-weight:500;font-size:10px;color:#888">'+m.unit+'</span>';
+      return '<td>'+txt+'</td>';
+    }).join('')+'</tr>';
+  }).join('');
+
+  destroyEvolutionCharts();
+  var chartsEl=document.getElementById('evolution-charts');
+  var chartMetrics=metrics.filter(function(m){
+    return snaps.some(function(s){var v=s.results[m.key];return v!=null&&Number.isFinite(v);});
+  });
+
+  if(!chartMetrics.length){
+    chartsEl.innerHTML='<p class="text-gray-400 text-sm col-span-full text-center py-6">Preencha pelo menos uma avaliação com PSE nos estágios de esforço para ver os gráficos.</p>';
+    return;
+  }
+
+  chartsEl.innerHTML=chartMetrics.map(function(m,i){
+    return '<div class="chart-card"><div class="chart-card-title"><span class="dot" style="background:'+m.color+'"></span>'+m.label+'</div><div class="chart-card-canvas"><canvas id="evo-chart-'+i+'"></canvas></div></div>';
+  }).join('');
+
+  var labels=snaps.map(function(s){return s.shortLabel;});
+  chartMetrics.forEach(function(m,i){
+    var data=snaps.map(function(s){
+      var v=s.results[m.key];
+      return v!=null&&Number.isFinite(v)?v:null;
+    });
+    var hasAny=data.some(function(v){return v!=null;});
+    if(!hasAny)return;
+    evolutionCharts['c'+i]=createLineChart('evo-chart-'+i,labels,data,{
+      label:m.label,
+      color:m.color,
+      fill:true,
+      yLabel:m.label,
+      unit:m.unit,
+      decimals:m.decimals
+    });
+  });
+}
+
+function buildReportText(){
+  if(!currentResults)return '';
+  return ConconiCalc.buildWhatsAppReport(getMetaFromForm(),currentResults);
+}
+
+function sendWhatsApp(){
+  var msg=buildReportText();
+  if(!msg){showToast('Preencha os dados do teste.');return;}
+  var phone=(document.getElementById('fld-whatsapp').value||'5573991040064').replace(/\D/g,'');
+  if(phone.length<=11&&phone.indexOf('55')!==0)phone='55'+phone;
+  window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msg),'_blank');
+}
+
+function copyReport(){
+  var msg=buildReportText();
+  if(!msg)return;
+  navigator.clipboard.writeText(msg).then(function(){showToast('Copiado!');});
+}
+
+function generatePDF(){
+  if(!currentResults){showToast('Preencha os dados.');return;}
+  var meta=getMetaFromForm();
+  var r=currentResults;
+  var doc=new window.jspdf.jsPDF();
+  var y=20;
+  doc.setFontSize(14);doc.text('Teste Conconi — '+meta.nome,20,y);y+=10;
+  doc.setFontSize(10);
+  if(meta.dataAvaliacao)doc.text('Data: '+meta.dataAvaliacao,20,y);y+=8;
+  if(r.vvo2max)doc.text('VVO2max: '+ConconiCalc.formatNum(r.vvo2max,2)+' km/h',20,y);y+=6;
+  if(r.pseMax)doc.text('PSE max: '+r.pseMax,20,y);y+=6;
+  if(r.vo2ml)doc.text('VO2max: '+ConconiCalc.formatNum(r.vo2ml,2)+' ml.kg.min',20,y);y+=6;
+  if(r.mets)doc.text('METs: '+ConconiCalc.formatNum(r.mets,2),20,y);y+=6;
+  if(r.hrAvailable&&r.fcMax)doc.text('FC max: '+r.fcMax+' bpm',20,y);y+=6;
+  doc.text('Prof. Joyce Neres — JN Consultoria de Treino',20,y);
+  doc.save('conconi-'+(meta.nome||'aluna').replace(/\s+/g,'-').toLowerCase()+'.pdf');
+  showToast('PDF baixado!');
+}
+
+function showToast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg;t.className='show';
+  setTimeout(function(){t.className='';},2500);
+}
+
+function initScroll(){
+  var bt=document.getElementById('backTop');
+  var pr=document.getElementById('progress');
+  window.addEventListener('scroll',function(){
+    var y=window.scrollY,d=document.documentElement.scrollHeight-window.innerHeight;
+    pr.style.width=(d>0?y/d*100:0)+'%';
+    if(y>300)bt.classList.add('visible');else bt.classList.remove('visible');
+  },{passive:true});
+}
+
+document.addEventListener('DOMContentLoaded',function(){
+  if(sessionStorage.getItem(COACH_KEY)==='1'){
+    document.getElementById('coach-gate').classList.add('hidden');
+    document.getElementById('app-content').classList.remove('locked');
+    boot();
+  }
+  document.getElementById('coach-pin').addEventListener('keydown',function(e){if(e.key==='Enter')verifyCoachPin();});
+  document.getElementById('mobile-menu-btn')&&document.getElementById('mobile-menu-btn').addEventListener('click',function(){});
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Teste Conconi Esteira</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+  <style>
+    :root { --verde: #4A7C62; --preto: #1A1A1A; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'DM Sans', sans-serif; background: #F7F5F0; color: var(--preto); min-height: 100vh; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+    h1 { font-family: 'Playfair Display', serif; font-size: 26px; margin-bottom: 6px; }
+    .sub { font-size: 14px; color: #666; margin-bottom: 1.5rem; line-height: 1.55; }
+    .card { background: #fff; border-radius: 14px; padding: 1.25rem; margin-bottom: 1rem; box-shadow: 0 1px 6px rgba(0,0,0,.06); }
+    label { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #666; margin-bottom: 6px; }
+    input { width: 100%; border: 1px solid #ddd; border-radius: 8px; padding: 10px 12px; font-size: 14px; }
+    .btn { border: none; border-radius: 8px; padding: 11px 16px; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; }
+    .btn-primary { background: var(--verde); color: #fff; }
+    .btn-dark { background: var(--preto); color: #fff; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 1rem; }
+    .hidden { display: none; }
+    .msg { margin-top: 10px; font-size: 13px; color: #c0392b; }
+    .msg.ok { color: var(--verde); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="pin-screen" class="card" style="max-width:320px;margin:4rem auto;">
+      <h1>Área da profissional</h1>
+      <p class="sub">Senha para gerenciar códigos de acesso (opcional).</p>
+      <label for="pin">Senha</label>
+      <input type="password" id="pin" placeholder="Senha">
+      <div class="actions"><button class="btn btn-primary" id="btn-pin" type="button">Entrar</button><a class="btn" href="index.html">Voltar</a></div>
+      <p class="msg hidden" id="pin-msg"></p>
+    </div>
+    <div id="admin-screen" class="hidden">
+      <h1>Códigos de acesso</h1>
+      <p class="sub">A planilha principal usa senha da profissional. Os códigos abaixo são opcionais para compartilhar leitura com alunas.</p>
+      <div class="card">
+        <label for="novo-codigo">Novo código</label>
+        <input type="text" id="novo-codigo" placeholder="Ex: vitoria01">
+        <div class="actions"><button class="btn btn-primary" id="btn-add" type="button">Adicionar</button></div>
+      </div>
+      <div class="card"><div id="code-list"></div></div>
+      <div class="actions">
+        <button class="btn btn-dark" id="btn-save" type="button">Salvar e publicar</button>
+        <a class="btn" href="index.html">Voltar à planilha</a>
+      </div>
+      <p class="msg hidden" id="save-msg"></p>
+    </div>
+  </div>
+  <script src="js/publish.js"></script>
+  <script>
+    var ADMIN_PIN = 'joyce2026';
+    var allowed = [];
+    function normalizeCode(c){return String(c||'').trim().toLowerCase().replace(/[\s\-_]+/g,'');}
+    function showAdmin(){
+      document.getElementById('pin-screen').classList.add('hidden');
+      document.getElementById('admin-screen').classList.remove('hidden');
+      fetch('students.json?t='+Date.now()).then(function(r){return r.json();}).then(function(d){
+        allowed=(d.allowed||[]).map(normalizeCode);
+        renderList();
+      });
+    }
+    function renderList(){
+      var el=document.getElementById('code-list');
+      if(!allowed.length){el.innerHTML='<p style="color:#888;text-align:center;padding:1rem;">Nenhum código cadastrado.</p>';return;}
+      el.innerHTML=allowed.map(function(c,i){
+        return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee"><strong>'+c+'</strong><button type="button" data-i="'+i+'" style="color:#c0392b;border:none;background:none;cursor:pointer">Remover</button></div>';
+      }).join('');
+      el.querySelectorAll('button').forEach(function(btn){
+        btn.onclick=function(){allowed.splice(+btn.dataset.i,1);renderList();};
+      });
+    }
+    document.getElementById('btn-pin').onclick=function(){
+      if(document.getElementById('pin').value===ADMIN_PIN)showAdmin();
+      else{document.getElementById('pin-msg').textContent='Senha incorreta.';document.getElementById('pin-msg').classList.remove('hidden');}
+    };
+    document.getElementById('btn-add').onclick=function(){
+      var c=normalizeCode(document.getElementById('novo-codigo').value);
+      if(!c)return;
+      if(!allowed.includes(c))allowed.push(c);
+      document.getElementById('novo-codigo').value='';
+      renderList();
+    };
+    document.getElementById('btn-save').onclick=function(){
+      if(!TestePublish.hasToken()){document.getElementById('save-msg').textContent='Configure o token GitHub em js/publish.js ou localStorage.';document.getElementById('save-msg').classList.remove('hidden');return;}
+      TestePublish.publishStudents(allowed).then(function(){
+        document.getElementById('save-msg').textContent='Publicado com sucesso!';document.getElementById('save-msg').className='msg ok';
+      }).catch(function(e){
+        document.getElementById('save-msg').textContent='Erro: '+e.message;document.getElementById('save-msg').classList.remove('hidden');
+      });
+    };
+  </script>
+</body>
+</html>
