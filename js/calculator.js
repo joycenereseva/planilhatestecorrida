@@ -1,260 +1,190 @@
 (function (global) {
   'use strict';
 
+  var TOTAL_STAGES = 16;
+
   function parseNum(v) {
     if (v === null || v === undefined || v === '') return null;
-    const n = parseFloat(String(v).replace(',', '.'));
+    var n = parseFloat(String(v).replace(',', '.'));
     return Number.isFinite(n) ? n : null;
   }
 
-  function speedToPace(speedKmh) {
-    if (!speedKmh || speedKmh <= 0) return '';
-    const totalSec = Math.round(3600 / speedKmh);
-    const min = Math.floor(totalSec / 60);
-    const sec = totalSec % 60;
-    return min + ':' + String(sec).padStart(2, '0');
+  function formatNum(n, decimals) {
+    if (n === null || n === undefined || !Number.isFinite(n)) return '—';
+    return n.toFixed(decimals == null ? 2 : decimals).replace('.', ',');
   }
 
-  function paceToSpeed(paceStr) {
-    if (!paceStr) return null;
-    const parts = String(paceStr).trim().split(':');
-    if (parts.length !== 2) return null;
-    const min = parseInt(parts[0], 10);
-    const sec = parseInt(parts[1], 10);
-    if (!Number.isFinite(min) || !Number.isFinite(sec) || min < 0 || sec < 0) return null;
-    const totalSec = min * 60 + sec;
-    if (totalSec <= 0) return null;
-    return 3600 / totalSec;
+  /** Velocidade fixa do protocolo Excel: estágios 1–3 = 5 km/h; 4–16 = estágio + 2 */
+  function speedForStage(stage) {
+    if (stage <= 3) return 5;
+    return stage + 2;
   }
 
-  function perpendicularDistance(point, lineStart, lineEnd) {
-    const x0 = point.speed;
-    const y0 = point.hr;
-    const x1 = lineStart.speed;
-    const y1 = lineStart.hr;
-    const x2 = lineEnd.speed;
-    const y2 = lineEnd.hr;
-    const num = Math.abs((y2 - y1) * x0 - (x2 - x1) * y0 + x2 * y1 - y2 * x1);
-    const den = Math.sqrt(Math.pow(y2 - y1, 2) + Math.pow(x2 - x1, 2));
-    return den === 0 ? 0 : num / den;
+  function phaseForStage(stage) {
+    return stage <= 3 ? 'aquecimento' : 'esforco';
   }
 
-  function interpolateSpeedAtHr(points, targetHr) {
-    const valid = points.filter(function (p) { return p.hr > 0 && p.speed > 0; })
-      .sort(function (a, b) { return a.hr - b.hr; });
-    if (!valid.length) return null;
-    if (targetHr <= valid[0].hr) return valid[0].speed;
-    if (targetHr >= valid[valid.length - 1].hr) return valid[valid.length - 1].speed;
-    for (let i = 0; i < valid.length - 1; i++) {
-      const a = valid[i];
-      const b = valid[i + 1];
-      if (targetHr >= a.hr && targetHr <= b.hr) {
-        const ratio = (targetHr - a.hr) / (b.hr - a.hr);
-        return a.speed + ratio * (b.speed - a.speed);
-      }
-    }
-    return null;
+  function phaseLabel(stage) {
+    return stage <= 3 ? 'AQUECIMENTO' : 'ESFORÇO';
   }
 
-  function detectThresholdDmax(points) {
-    let valid = points.filter(function (p) { return p.hr > 0 && p.speed > 0; })
-      .sort(function (a, b) { return a.speed - b.speed; });
-    if (valid.length < 4) return null;
-
-    const filtered = valid.filter(function (p) { return p.hr >= 140; });
-    if (filtered.length >= 4) valid = filtered;
-
-    const first = valid[0];
-    const last = valid[valid.length - 1];
-    let maxDist = -1;
-    let best = null;
-
-    for (let i = 1; i < valid.length - 1; i++) {
-      const dist = perpendicularDistance(valid[i], first, last);
-      if (dist > maxDist) {
-        maxDist = dist;
-        best = valid[i];
-      }
-    }
-    return best ? { method: 'Dmax', point: best, confidence: maxDist } : null;
-  }
-
-  function buildZones(fcMax, points) {
-    const defs = [
-      { id: 'z1', name: 'Zona 1 — Recuperação', pctMin: 50, pctMax: 60, color: '#2471A3' },
-      { id: 'z2', name: 'Zona 2 — Aeróbico leve', pctMin: 60, pctMax: 70, color: '#3A7D44' },
-      { id: 'z3', name: 'Zona 3 — Aeróbico moderado', pctMin: 70, pctMax: 80, color: '#E09010' },
-      { id: 'z4', name: 'Zona 4 — Limiar', pctMin: 80, pctMax: 90, color: '#D4611A' },
-      { id: 'z5', name: 'Zona 5 — Alta intensidade', pctMin: 90, pctMax: 100, color: '#B03020' }
-    ];
-
-    return defs.map(function (z) {
-      const fcMin = Math.round(fcMax * z.pctMin / 100);
-      const fcMaxZ = Math.round(fcMax * z.pctMax / 100);
-      const speedMax = interpolateSpeedAtHr(points, fcMin);
-      const speedMin = interpolateSpeedAtHr(points, fcMaxZ);
-      return {
-        id: z.id,
-        name: z.name,
-        color: z.color,
-        pctMin: z.pctMin,
-        pctMax: z.pctMax,
-        fcMin: fcMin,
-        fcMax: fcMaxZ,
-        paceMin: speedMax ? speedToPace(speedMax) : '—',
-        paceMax: speedMin ? speedToPace(speedMin) : '—',
-        speedMin: speedMin ? speedMin.toFixed(1) : '—',
-        speedMax: speedMax ? speedMax.toFixed(1) : '—'
-      };
-    });
-  }
-
-  function generateProtocolStages(config) {
-    const startSpeed = parseNum(config.startSpeed) || 7;
-    const increment = parseNum(config.increment) || 1;
-    const intervalMin = config.noIncline ? 2 : 1;
-    const stages = [];
-    let minute = 0;
-
-    stages.push({ minute: minute, speed: 5, phase: 'aquecimento', borg: '', hr: '' });
-    minute += 2;
-    stages.push({ minute: minute, speed: 6, phase: 'aquecimento', borg: '', hr: '' });
-    minute += 2;
-
-    let speed = startSpeed;
-    let stageNum = 1;
-    while (stageNum <= (config.maxStages || 15)) {
+  /** Gera as 16 linhas do protocolo Conconi (igual à planilha) */
+  function generateProtocolStages() {
+    var stages = [];
+    for (var s = 1; s <= TOTAL_STAGES; s++) {
       stages.push({
-        minute: minute,
-        speed: speed,
-        phase: 'teste',
-        borg: '',
+        stage: s,
+        tempo: s,
+        speed: speedForStage(s),
+        phase: phaseForStage(s),
         hr: '',
-        stage: stageNum
+        pse: ''
       });
-      minute += intervalMin;
-      speed += increment;
-      stageNum++;
     }
     return stages;
   }
 
-  function enrichStages(stages) {
-    let prevHr = null;
-    return stages.map(function (s, idx) {
-      const speed = parseNum(s.speed);
-      const hr = parseNum(s.hr);
-      const pace = speed ? speedToPace(speed) : '';
-      let delta = '';
-      if (hr !== null && prevHr !== null) delta = hr - prevHr;
-      if (hr !== null) prevHr = hr;
-      return Object.assign({}, s, {
-        index: idx,
-        pace: pace,
-        deltaHr: delta === '' ? '' : delta
-      });
+  function getFilledStages(stages) {
+    return (stages || []).filter(function (s) {
+      return parseNum(s.hr) !== null;
     });
   }
 
-  function calculateResults(meta, stages, options) {
-    options = options || {};
-    const enriched = enrichStages(stages);
-    const testPoints = enriched
-      .filter(function (s) { return s.phase === 'teste'; })
-      .map(function (s) {
-        return {
-          stage: s.stage,
-          minute: s.minute,
-          speed: parseNum(s.speed),
-          hr: parseNum(s.hr),
-          borg: parseNum(s.borg)
-        };
-      })
-      .filter(function (p) { return p.speed && p.hr; });
+  function getEffortStagesWithHr(stages) {
+    return (stages || []).filter(function (s) {
+      return s.stage >= 4 && parseNum(s.hr) !== null;
+    });
+  }
 
-    const allHr = testPoints.map(function (p) { return p.hr; });
-    const fcMax = allHr.length ? Math.max.apply(null, allHr) : null;
-    const fcRest = parseNum(meta.fcRest);
+  /**
+   * Cálculos idênticos à planilha Excel:
+   * - iVO2máx = velocidade máxima do teste (último estágio de esforço com FC)
+   * - VO2máx (ml.kg.min) = 2,21 × iVO2máx + 2,27
+   * - VO2máx (L.min) = (VO2máx × peso) / 1000
+   * - METs = VO2máx / 3,5
+   * - Índice FC = FCmáx / FC repouso
+   * - FC L1/L2 % = FC limiar / FCmáx × 100
+   * - Tabela %iVO2máx: km/h = (% / 100) × iVO2máx
+   */
+  function calculateResults(meta, stages) {
+    meta = meta || {};
+    stages = stages || generateProtocolStages();
 
-    let threshold = null;
-    if (options.manualStage != null && options.manualStage !== '') {
-      const manual = testPoints.find(function (p) { return p.stage === options.manualStage; });
-      if (manual) threshold = { method: 'Manual', point: manual };
+    var allHr = stages.map(function (s) { return parseNum(s.hr); }).filter(function (v) { return v !== null; });
+    var allPse = stages.map(function (s) { return parseNum(s.pse); }).filter(function (v) { return v !== null; });
+
+    var fcMax = allHr.length ? Math.max.apply(null, allHr) : null;
+    var pseMax = allPse.length ? Math.max.apply(null, allPse) : null;
+
+    var effortWithHr = getEffortStagesWithHr(stages);
+    var maxSpeed = null;
+    if (effortWithHr.length) {
+      maxSpeed = parseNum(effortWithHr[effortWithHr.length - 1].speed);
     }
-    if (!threshold) threshold = detectThresholdDmax(testPoints);
 
-    const thresholdPoint = threshold ? threshold.point : null;
-    const zones = fcMax ? buildZones(fcMax, testPoints) : [];
+    var iVo2max = maxSpeed;
+    var fcRest = parseNum(meta.fcRest);
+    var peso = parseNum(meta.peso);
+    var fcL1 = parseNum(meta.fcL1);
+    var fcL2 = parseNum(meta.fcL2);
 
-    const thresholdBorg = thresholdPoint
-      ? (testPoints.find(function (p) { return p.stage === thresholdPoint.stage; }) || {}).borg
-      : null;
+    var indiceFC = fcMax && fcRest ? fcMax / fcRest : null;
+    var vo2ml = iVo2max !== null ? 2.21 * iVo2max + 2.27 : null;
+    var vo2L = vo2ml !== null && peso ? (vo2ml * peso) / 1000 : null;
+    var mets = vo2ml !== null ? vo2ml / 3.5 : null;
+    var fcL1pct = fcL1 && fcMax ? (fcL1 / fcMax) * 100 : null;
+    var fcL2pct = fcL2 && fcMax ? (fcL2 / fcMax) * 100 : null;
+
+    var intensityTable = [];
+    for (var pct = 30; pct <= 165; pct += 5) {
+      intensityTable.push({
+        pct: pct,
+        kmh: iVo2max !== null ? (pct / 100) * iVo2max : null
+      });
+    }
+
+    var chartPoints = getFilledStages(stages).map(function (s) {
+      return {
+        stage: s.stage,
+        speed: parseNum(s.speed),
+        hr: parseNum(s.hr)
+      };
+    });
 
     return {
-      enriched: enriched,
-      testPoints: testPoints,
       fcMax: fcMax,
+      maxSpeed: maxSpeed,
+      pseMax: pseMax,
+      iVo2max: iVo2max,
       fcRest: fcRest,
-      threshold: thresholdPoint ? {
-        method: threshold.method,
-        stage: thresholdPoint.stage,
-        speed: thresholdPoint.speed,
-        hr: thresholdPoint.hr,
-        borg: thresholdBorg,
-        pace: speedToPace(thresholdPoint.speed)
-      } : null,
-      zones: zones,
+      indiceFC: indiceFC,
+      vo2ml: vo2ml,
+      vo2L: vo2L,
+      mets: mets,
+      fcL1: fcL1,
+      fcL2: fcL2,
+      fcL1pct: fcL1pct,
+      fcL2pct: fcL2pct,
+      intensityTable: intensityTable,
       chart: {
-        labels: testPoints.map(function (p) { return p.speed.toFixed(1) + ' km/h'; }),
-        hr: testPoints.map(function (p) { return p.hr; }),
-        speeds: testPoints.map(function (p) { return p.speed; })
+        labels: chartPoints.map(function (p) { return p.speed + ' km/h'; }),
+        hr: chartPoints.map(function (p) { return p.hr; }),
+        speeds: chartPoints.map(function (p) { return p.speed; })
       },
-      valid: testPoints.length >= 3
+      valid: allHr.length >= 1 && iVo2max !== null
     };
   }
 
   function buildWhatsAppReport(meta, results) {
-    const name = meta.studentName || 'Aluna';
-    const date = meta.testDate || '';
-    let msg = '🏃‍♀️ *RESULTADO — TESTE DE CONCONI NA ESTEIRA*\n\n';
+    var name = meta.nome || meta.studentName || 'Aluna';
+    var date = meta.testDate || meta.dataAvaliacao || '';
+    var msg = '🏃‍♀️ *RESULTADO — TESTE DE CONCONI NA ESTEIRA*\n\n';
     msg += '👩‍🏫 Profª Joyce Neres\n';
     msg += '👤 ' + name + '\n';
     if (date) msg += '📅 ' + date + '\n';
-    msg += '\n';
-
-    if (results.fcMax) msg += '*FC Máxima:* ' + results.fcMax + ' bpm\n';
-    if (meta.fcRest) msg += '*FC Repouso:* ' + meta.fcRest + ' bpm\n';
-
-    if (results.threshold) {
-      msg += '\n*LIMIAR ANAERÓBICO* (' + results.threshold.method + ')\n';
-      msg += '• FC: ' + results.threshold.hr + ' bpm\n';
-      msg += '• Velocidade: ' + results.threshold.speed.toFixed(1) + ' km/h\n';
-      msg += '• Ritmo: ' + results.threshold.pace + ' min/km\n';
-      if (results.threshold.borg) msg += '• Borg: ' + results.threshold.borg + '\n';
+    if (meta.peso) msg += '⚖️ Peso: ' + meta.peso + ' kg\n';
+    msg += '\n*RESULTADOS DO TESTE*\n';
+    if (results.fcMax) msg += '• FC máxima: ' + results.fcMax + ' bpm\n';
+    if (results.maxSpeed) msg += '• Velocidade máxima: ' + formatNum(results.maxSpeed, 0) + ' km/h\n';
+    if (results.iVo2max) msg += '• iVO2máx: ' + formatNum(results.iVo2max, 0) + ' km/h\n';
+    if (results.fcRest) msg += '• FC repouso: ' + results.fcRest + ' bpm\n';
+    if (results.indiceFC) msg += '• Índice de FC: ' + formatNum(results.indiceFC, 2) + '\n';
+    if (results.vo2ml) msg += '• VO2máx: ' + formatNum(results.vo2ml, 2) + ' ml.kg.min\n';
+    if (results.vo2L) msg += '• VO2máx: ' + formatNum(results.vo2L, 3) + ' L.min\n';
+    if (results.mets) msg += '• METs: ' + formatNum(results.mets, 2) + '\n';
+    if (results.fcL1) {
+      msg += '\n*LIMIAR 1 (L1)*\n';
+      msg += '• FC L1: ' + results.fcL1 + ' bpm';
+      if (results.fcL1pct) msg += ' (' + formatNum(results.fcL1pct, 2) + '% FC máx)';
+      msg += '\n';
     }
-
-    if (results.zones.length) {
-      msg += '\n*ZONAS DE TREINO* (% FC máx)\n';
-      results.zones.forEach(function (z) {
-        msg += '• ' + z.name + ': ' + z.fcMin + '–' + z.fcMax + ' bpm';
-        if (z.paceMax !== '—') msg += ' | ritmo ' + z.paceMin + '–' + z.paceMax;
-        msg += '\n';
+    if (results.fcL2) {
+      msg += '\n*LIMIAR 2 (L2)*\n';
+      msg += '• FC L2: ' + results.fcL2 + ' bpm';
+      if (results.fcL2pct) msg += ' (' + formatNum(results.fcL2pct, 2) + '% FC máx)';
+      msg += '\n';
+    }
+    if (results.intensityTable && results.iVo2max) {
+      msg += '\n*VELOCIDADES POR % iVO2máx*\n';
+      [60, 70, 80, 90, 100, 110].forEach(function (pct) {
+        var row = results.intensityTable.find(function (r) { return r.pct === pct; });
+        if (row && row.kmh !== null) msg += '• ' + pct + '%: ' + formatNum(row.kmh, 2) + ' km/h\n';
       });
     }
-
     msg += '\nEsses dados orientam sua prescrição de treinos. Qualquer dúvida, fale comigo! 💚\n';
     msg += '#VAMOSJUNTAS @joyceneresef';
     return msg;
   }
 
   global.ConconiCalc = {
+    TOTAL_STAGES: TOTAL_STAGES,
     parseNum: parseNum,
-    speedToPace: speedToPace,
-    paceToSpeed: paceToSpeed,
+    formatNum: formatNum,
+    speedForStage: speedForStage,
+    phaseForStage: phaseForStage,
+    phaseLabel: phaseLabel,
     generateProtocolStages: generateProtocolStages,
-    enrichStages: enrichStages,
     calculateResults: calculateResults,
-    buildWhatsAppReport: buildWhatsAppReport,
-    detectThresholdDmax: detectThresholdDmax
+    buildWhatsAppReport: buildWhatsAppReport
   };
 })(window);

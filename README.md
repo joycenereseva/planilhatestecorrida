@@ -6,11 +6,30 @@ Página web da **Profª Joyce Neres** para registrar o teste de Conconi na estei
 
 1. Abra `index.html` no navegador (ou publique no GitHub Pages).
 2. Entre com a senha da profissional: `joyce2026`
-3. Selecione ou adicione uma aluna (Vitória, Amanda, etc.).
-4. Preencha os dados do teste e clique em **Gerar protocolo padrão** (aquecimento + estágios).
-5. Informe **Borg** e **FC** de cada minuto/estágio.
-6. Clique em **Calcular resultados**.
-7. Envie pelo **WhatsApp**, **PDF** ou copie o texto do relatório.
+3. Selecione a aluna (Vitória, Amanda…) ou adicione uma nova.
+4. Use as abas **Avaliação 1, 2, 3…** para cada teste realizado.
+5. Preencha **peso**, **FC repouso** e, a cada minuto, **FC** e **PSE** na tabela.
+6. Identifique **FC L1** e **FC L2** no gráfico e digite os valores.
+7. Os resultados calculam **automaticamente** (como no Excel).
+8. Envie pelo **WhatsApp** ou **PDF**.
+
+## Fórmulas (iguais à planilha Excel)
+
+| Resultado | Fórmula |
+|-----------|---------|
+| Velocidade máxima | Último estágio de esforço com FC preenchida |
+| iVO2máx | = velocidade máxima |
+| VO2máx (ml.kg.min) | `2,21 × iVO2máx + 2,27` |
+| VO2máx (L.min) | `(VO2máx × peso) / 1000` |
+| METs | `VO2máx / 3,5` |
+| Índice de FC | `FCmáx / FC repouso` |
+| FC L1/L2 % | `FC limiar / FCmáx × 100` |
+| % iVO2máx → km/h | `(% / 100) × iVO2máx` |
+
+## Protocolo (16 estágios)
+
+- **Aquecimento** (min 1–3): 5 km/h
+- **Esforço** (min 4–16): 6, 7, 8… até 18 km/h (+1 km/h por minuto)
 
 ## Funcionalidades
 
