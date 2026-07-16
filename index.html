@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Teste de Conconi na Esteira — Profª Joyce Neres</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="js/calculator.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700;900&family=Playfair+Display:ital,wght@0,700;1,700&family=DM+Sans:wght@400;500;600;700&display=swap');
+:root{--verde:#4A7C62;--verde-dark:#2d4f3e;--verde-light:#8aba9e;--teal:#4DB896;--creme:#F0EDE6;--cinza:#7A7A7A;--preto:#1A1A1A;--bg:#F7F5F0;}
+body{font-family:'Montserrat',sans-serif;-webkit-font-smoothing:antialiased;background:var(--bg);color:var(--preto);}
+.section-title{position:relative;display:inline-block;}
+.section-title::after{content:'';position:absolute;bottom:-5px;left:0;width:50%;height:4px;background:var(--verde);}
+.table-container{position:relative;background:#fff;scrollbar-width:thin;scrollbar-color:var(--verde-light) #f8fafc;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.table-container::-webkit-scrollbar{height:12px;}
+.table-container::-webkit-scrollbar-thumb{background:var(--verde-light);border-radius:8px;}
+.test-input{width:100%;background:transparent;text-align:center;font-weight:600;color:#374151;outline:none;padding:8px 4px;font-size:.85rem;border:none;}
+.test-input:focus{background:#e8f5ee;border-radius:4px;}
+.test-input::placeholder{color:#D1D5DB;font-weight:500;}
+.sticky-col{position:sticky;left:0;z-index:20;box-shadow:4px 0 10px -2px rgba(0,0,0,.1);}
+th.sticky-col{z-index:30;}
+#toast{visibility:hidden;min-width:250px;margin-left:-125px;background:var(--preto);color:var(--creme);text-align:center;border-radius:50px;padding:16px;position:fixed;z-index:300;left:50%;bottom:30px;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.2);}
+#toast.show{visibility:visible;animation:fadein .5s,fadeout .5s 2.5s;}
+@keyframes fadein{from{bottom:0;opacity:0}to{bottom:30px;opacity:1}}
+@keyframes fadeout{from{bottom:30px;opacity:1}to{bottom:0;opacity:0}}
+#coach-gate{position:fixed;inset:0;z-index:500;background:linear-gradient(160deg,#0D1117 0%,#18181B 100%);display:flex;align-items:center;justify-content:center;padding:24px;}
+#coach-gate.hidden{display:none;}
+#app-content.locked{filter:blur(12px);pointer-events:none;user-select:none;}
+.progress-bar{position:fixed;top:0;left:0;right:0;z-index:200;height:3px;background:rgba(0,0,0,.06);}
+.progress-fill{height:100%;background:var(--verde);width:0%;transition:width .1s linear;}
+.back-top{position:fixed;bottom:22px;right:18px;z-index:200;width:46px;height:46px;border-radius:50%;background:var(--verde);color:#fff;border:none;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.28);opacity:0;pointer-events:none;transition:opacity .3s;}
+.back-top.visible{opacity:1;pointer-events:all;}
+.result-card{background:#fff;border-left:4px solid var(--verde);border-radius:12px;padding:1.25rem;box-shadow:0 2px 12px rgba(0,0,0,.06);}
+.zone-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f0f0f0;}
+.zone-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+.chart-wrap{position:relative;height:280px;max-width:640px;margin:0 auto;}
+.phase-tag{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:20px;}
+.phase-aquecimento{background:#e8f5ee;color:var(--verde-dark);}
+.phase-teste{background:#fff3e0;color:#c05621;}
+#mobile-menu{transition:transform .3s ease-in-out;}
+@media print{
+  .no-print,#coach-gate,#mobile-menu-btn,#mobile-menu,.back-top,.progress-bar{display:none!important;}
+  body{background:#fff!important;}
+}
+</style>
+</head>
+<body class="overflow-x-hidden">
+
+<div id="coach-gate">
+  <div class="bg-white p-8 rounded-3xl max-w-sm w-full shadow-2xl text-center border border-gray-100">
+    <div class="mb-4"><span class="font-black text-4xl" style="font-family:'Playfair Display',serif;font-style:italic">JN</span></div>
+    <h2 class="text-xl font-black mb-2">Área da Profissional</h2>
+    <p class="text-gray-500 text-sm mb-6 leading-relaxed">Digite sua senha para acessar a planilha do teste de Conconi na esteira.</p>
+    <input type="password" id="coach-pin" placeholder="Senha" class="w-full text-center font-bold px-5 py-4 rounded-xl border-2 outline-none mb-4" style="border-color:#e5e7eb;" onfocus="this.style.borderColor='var(--verde)'" onblur="this.style.borderColor='#e5e7eb'">
+    <button onclick="verifyCoachPin()" class="w-full py-4 rounded-xl font-black text-white shadow-lg" style="background:var(--verde)">ENTRAR</button>
+    <p id="pin-error" class="text-red-500 text-xs mt-4 hidden font-semibold">Senha incorreta.</p>
+  </div>
+</div>
+
+<div id="app-content" class="locked">
+<div class="progress-bar no-print"><div class="progress-fill" id="progress"></div></div>
+<button class="back-top no-print" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Voltar ao topo">↑</button>
+<div id="toast">Ação realizada!</div>
+
+<header class="text-white shadow-lg sticky top-0 z-50 no-print" style="background:#18181B">
+  <div class="container mx-auto px-4 py-4 flex justify-between items-center relative h-20">
+    <button id="mobile-menu-btn" class="lg:hidden p-2 text-white rounded-full hover:bg-white/10" aria-label="Menu"><i data-lucide="menu" class="w-7 h-7"></i></button>
+    <nav class="hidden lg:flex gap-6 text-xs font-bold tracking-widest text-gray-300">
+      <a href="#aluna" class="hover:text-white transition">ALUNA</a>
+      <a href="#dados" class="hover:text-white transition">DADOS</a>
+      <a href="#tabela" class="hover:text-white transition">TESTE</a>
+      <a href="#resultados" class="hover:text-white transition">RESULTADOS</a>
+      <a href="#enviar" class="hover:text-white transition">ENVIAR</a>
+    </nav>
+    <a href="#" class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+      <span class="font-black text-2xl lg:text-xl" style="font-family:'Playfair Display',serif;font-style:italic;color:var(--creme)">Profª Joyce Neres</span>
+      <span class="text-[10px] tracking-widest uppercase mt-0.5" style="color:var(--verde-light)">Teste Conconi · Esteira</span>
+    </a>
+    <button onclick="saveCurrentTest();showToast('Salvo!')" class="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold text-white" style="background:var(--verde)"><i data-lucide="save" class="w-4 h-4"></i> SALVAR</button>
+  </div>
+</header>
+
+<div id="mobile-menu" class="fixed inset-0 z-40 translate-x-full flex flex-col justify-center items-center text-center no-print" style="background:#18181B">
+  <nav class="flex flex-col gap-8 text-2xl font-black text-white">
+    <a href="#aluna" class="mobile-link">ALUNA</a>
+    <a href="#dados" class="mobile-link">DADOS</a>
+    <a href="#tabela" class="mobile-link">TESTE</a>
+    <a href="#resultados" class="mobile-link">RESULTADOS</a>
+    <a href="#enviar" class="mobile-link">ENVIAR</a>
+  </nav>
+</div>
+
+<section id="hero" class="relative text-white py-14 md:py-20 overflow-hidden" style="background:#18181B">
+  <div class="absolute inset-0 opacity-20 bg-cover bg-center" style="background-image:url('https://images.unsplash.com/photo-1576678927484-cc907957088c?q=80&w=1470&auto=format&fit=crop')"></div>
+  <div class="container mx-auto px-4 relative z-10 text-center">
+    <p class="text-xs font-bold tracking-[0.2em] uppercase mb-3" style="color:var(--verde-light)">Avaliação Física</p>
+    <h1 class="text-3xl md:text-6xl font-black mb-4 leading-tight" style="font-family:'Playfair Display',serif;font-style:italic">TESTE DE <span style="color:var(--verde-light)">CONCONI</span><br class="md:hidden"> NA ESTEIRA</h1>
+    <p class="text-gray-300 max-w-xl mx-auto text-sm md:text-base font-light leading-relaxed">Preencha os dados do teste, calcule o limiar e as zonas de treino — e envie o resultado para cada aluna.</p>
+    <div class="mt-8 flex justify-center gap-2">
+      <div class="w-12 h-1 rounded-full" style="background:var(--verde)"></div>
+      <div class="w-3 h-1 rounded-full" style="background:var(--verde)"></div>
+      <div class="w-12 h-1 rounded-full" style="background:var(--verde)"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ALUNA -->
+<section id="aluna" class="py-10 container mx-auto px-4">
+  <h2 class="text-2xl font-bold mb-6 section-title">Selecionar aluna</h2>
+  <div class="bg-white rounded-2xl shadow-lg p-5 md:p-6 border-t-4" style="border-color:var(--verde)">
+    <div class="flex flex-col md:flex-row gap-4 items-stretch md:items-end">
+      <div class="flex-grow">
+        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Aluna ativa</label>
+        <select id="student-select" onchange="switchStudent(this.value)" class="w-full px-4 py-3 rounded-xl border-2 font-bold outline-none" style="border-color:#e5e7eb;" onfocus="this.style.borderColor='var(--verde)'" onblur="this.style.borderColor='#e5e7eb'"></select>
+      </div>
+      <div class="flex-grow">
+        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Nova aluna</label>
+        <div class="flex gap-2">
+          <input type="text" id="new-student-name" placeholder="Ex: Vitória, Amanda..." maxlength="60" class="flex-grow px-4 py-3 rounded-xl border-2 font-semibold outline-none" style="border-color:#e5e7eb;">
+          <button onclick="addStudent()" class="px-5 py-3 rounded-xl font-bold text-white whitespace-nowrap" style="background:var(--verde)">+ ADICIONAR</button>
+        </div>
+      </div>
+      <button onclick="deleteCurrentStudent()" class="px-4 py-3 rounded-xl font-bold text-red-600 bg-red-50 border border-red-100 text-sm">Excluir aluna</button>
+    </div>
+    <p class="text-xs text-gray-400 mt-4 leading-relaxed">Cada aluna tem seus dados salvos separadamente. Troque a aluna, preencha o teste e calcule — os resultados são independentes.</p>
+  </div>
+</section>
+
+<!-- DADOS -->
+<section id="dados" class="py-6 container mx-auto px-4">
+  <h2 class="text-2xl font-bold mb-6 section-title">Dados do teste</h2>
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div><label class="block text-xs font-bold uppercase text-gray-500 mb-2">Data do teste</label><input type="date" id="meta-date" class="w-full px-4 py-3 rounded-xl border-2 outline-none font-semibold" onchange="onMetaChange()"></div>
+    <div><label class="block text-xs font-bold uppercase text-gray-500 mb-2">FC repouso (bpm)</label><input type="number" id="meta-fc-rest" placeholder="Ex: 62" class="w-full px-4 py-3 rounded-xl border-2 outline-none font-semibold" oninput="onMetaChange()"></div>
+    <div><label class="block text-xs font-bold uppercase text-gray-500 mb-2">Velocidade inicial do teste (km/h)</label><input type="number" step="0.1" id="meta-start-speed" placeholder="Ex: 7" class="w-full px-4 py-3 rounded-xl border-2 outline-none font-semibold" oninput="onMetaChange()"></div>
+    <div><label class="block text-xs font-bold uppercase text-gray-500 mb-2">Incremento por estágio (km/h)</label><input type="number" step="0.1" id="meta-increment" value="1" class="w-full px-4 py-3 rounded-xl border-2 outline-none font-semibold" oninput="onMetaChange()"></div>
+    <div><label class="block text-xs font-bold uppercase text-gray-500 mb-2">Esteira sem inclinação?</label>
+      <select id="meta-no-incline" onchange="onMetaChange()" class="w-full px-4 py-3 rounded-xl border-2 outline-none font-semibold">
+        <option value="0">Não — +1 km/h a cada 1 min</option>
+        <option value="1">Sim — +1 km/h a cada 2 min</option>
+      </select>
+    </div>
+    <div><label class="block text-xs font-bold uppercase text-gray-500 mb-2">Limiar manual (estágio)</label>
+      <select id="meta-manual-stage" onchange="onMetaChange()" class="w-full px-4 py-3 rounded-xl border-2 outline-none font-semibold">
+        <option value="">Automático (Dmax)</option>
+      </select>
+    </div>
+  </div>
+  <div class="flex flex-wrap gap-3 mt-5">
+    <button onclick="generateProtocol()" class="flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-white shadow-md" style="background:var(--verde)"><i data-lucide="list-plus" class="w-4 h-4"></i> Gerar protocolo padrão</button>
+    <button onclick="addStageRow()" class="flex items-center gap-2 px-5 py-3 rounded-xl font-bold bg-gray-100 text-gray-700"><i data-lucide="plus" class="w-4 h-4"></i> Adicionar linha</button>
+    <button onclick="calculate()" class="flex items-center gap-2 px-6 py-3 rounded-xl font-black text-white shadow-lg" style="background:var(--preto)"><i data-lucide="calculator" class="w-4 h-4"></i> CALCULAR RESULTADOS</button>
+  </div>
+</section>
+
+<!-- TABELA -->
+<section id="tabela" class="py-10 container mx-auto px-4">
+  <h2 class="text-2xl font-bold mb-2 section-title">Registro do teste</h2>
+  <p class="text-gray-500 text-sm mb-4 flex items-center gap-2"><i data-lucide="move-horizontal" class="w-4 h-4" style="color:var(--verde)"></i> Deslize a tabela no celular para ver todas as colunas.</p>
+  <div class="table-container rounded-xl shadow-xl border border-gray-100">
+    <table class="w-full border-collapse bg-white text-sm min-w-[700px]" id="stages-table">
+      <thead>
+        <tr class="text-white text-[10px] uppercase tracking-wider" style="background:var(--preto)">
+          <th class="p-3 text-left sticky-col min-w-[90px]" style="background:var(--preto)">Min</th>
+          <th class="p-3 min-w-[80px]">Fase</th>
+          <th class="p-3 min-w-[90px]">Vel (km/h)</th>
+          <th class="p-3 min-w-[80px]">Borg</th>
+          <th class="p-3 min-w-[80px]">FC (bpm)</th>
+          <th class="p-3 min-w-[90px]">Ritmo</th>
+          <th class="p-3 min-w-[70px]">ΔFC</th>
+          <th class="p-3 min-w-[50px]"></th>
+        </tr>
+      </thead>
+      <tbody id="stages-body"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- RESULTADOS -->
+<section id="resultados" class="py-10" style="background:#EAEDE6">
+  <div class="container mx-auto px-4">
+    <h2 class="text-2xl font-bold mb-6 section-title">Resultados</h2>
+    <div id="results-empty" class="text-center py-12 text-gray-500">
+      <i data-lucide="activity" class="w-12 h-12 mx-auto mb-4 opacity-30"></i>
+      <p>Preencha pelo menos 3 estágios do teste com FC e velocidade,<br>depois clique em <strong>Calcular resultados</strong>.</p>
+    </div>
+    <div id="results-content" class="hidden">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div class="result-card"><p class="text-xs font-bold uppercase text-gray-400 mb-1">FC Máxima</p><p class="text-3xl font-black" style="color:var(--verde)" id="res-fc-max">—</p><p class="text-xs text-gray-400 mt-1">bpm</p></div>
+        <div class="result-card" style="border-color:var(--teal)"><p class="text-xs font-bold uppercase text-gray-400 mb-1">Limiar anaeróbico</p><p class="text-3xl font-black" style="color:var(--verde-dark)" id="res-threshold-hr">—</p><p class="text-sm text-gray-600 mt-1" id="res-threshold-detail">—</p></div>
+        <div class="result-card" style="border-color:#D4611A"><p class="text-xs font-bold uppercase text-gray-400 mb-1">Ritmo no limiar</p><p class="text-3xl font-black text-orange-700" id="res-threshold-pace">—</p><p class="text-xs text-gray-400 mt-1">min/km</p></div>
+      </div>
+      <div class="bg-white rounded-2xl shadow-lg p-5 mb-8">
+        <h3 class="font-bold mb-4 text-center" style="font-family:'Playfair Display',serif;font-style:italic">Gráfico FC × Velocidade</h3>
+        <div class="chart-wrap"><canvas id="hr-chart"></canvas></div>
+        <p class="text-xs text-center text-gray-400 mt-3">Ponto de deflexão estimado pelo método Dmax (ou estágio manual).</p>
+      </div>
+      <div class="bg-white rounded-2xl shadow-lg p-5 md:p-6">
+        <h3 class="font-bold mb-4 text-lg">Zonas de treino (% FC máx)</h3>
+        <div id="zones-list"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ENVIAR -->
+<section id="enviar" class="py-12 container mx-auto px-4">
+  <h2 class="text-2xl font-bold mb-6 section-title">Enviar para a aluna</h2>
+  <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 border-t-4 max-w-2xl mx-auto" style="border-color:var(--verde)">
+    <p class="text-gray-600 text-sm mb-6 leading-relaxed">Gere o relatório com os resultados calculados e envie para a aluna pelo WhatsApp ou baixe o PDF para compartilhar.</p>
+    <div class="mb-4">
+      <label class="block text-xs font-bold uppercase text-gray-500 mb-2">WhatsApp da aluna (opcional)</label>
+      <input type="tel" id="student-whatsapp" placeholder="Ex: 73991040064" class="w-full px-4 py-3 rounded-xl border-2 outline-none font-semibold" oninput="onMetaChange()">
+    </div>
+    <div class="flex flex-col gap-3">
+      <button onclick="sendWhatsApp()" class="w-full py-4 rounded-xl font-black text-white flex justify-center items-center gap-2 shadow-lg" style="background:#25D366"><i data-lucide="message-circle" class="w-5 h-5"></i> ENVIAR PELO WHATSAPP</button>
+      <button onclick="generatePDF()" class="w-full py-4 rounded-xl font-bold text-white flex justify-center items-center gap-2" style="background:var(--preto)"><i data-lucide="download" class="w-5 h-5"></i> BAIXAR PDF DO RESULTADO</button>
+      <button onclick="copyReport()" class="w-full py-4 rounded-xl font-bold bg-gray-100 text-gray-700 flex justify-center items-center gap-2"><i data-lucide="copy" class="w-5 h-5"></i> COPIAR TEXTO DO RELATÓRIO</button>
+    </div>
+  </div>
+</section>
+
+<footer class="text-white text-center py-12 border-t-4" style="background:#000;border-color:var(--verde)">
+  <p class="text-2xl font-black mb-2" style="font-family:'Playfair Display',serif;font-style:italic;color:var(--creme)">Profª Joyce Neres</p>
+  <p class="text-gray-400 text-sm mb-4">A profissional que te guia no caminho de volta para si mesma.</p>
+  <p class="font-black text-3xl tracking-tighter mb-4" style="color:rgba(255,255,255,.1)">#VAMOSJUNTAS</p>
+  <p class="text-xs" style="color:rgba(240,237,230,.2)">© 2026 PROFª JOYCE NERES</p>
+</footer>
+</div>
+
+<script>
+var COACH_PIN = 'joyce2026';
+var COACH_KEY = 'tc_coach_auth';
+var STORAGE_STUDENTS = 'tc_students';
+var STORAGE_TESTS = 'tc_tests';
+var activeStudentId = null;
+var currentResults = null;
+var hrChart = null;
+
+function initLucide(){if(typeof lucide!=='undefined')lucide.createIcons();else setTimeout(initLucide,100);}
+
+function verifyCoachPin(){
+  var pin=document.getElementById('coach-pin').value;
+  var err=document.getElementById('pin-error');
+  if(pin===COACH_PIN){
+    sessionStorage.setItem(COACH_KEY,'1');
+    document.getElementById('coach-gate').classList.add('hidden');
+    document.getElementById('app-content').classList.remove('locked');
+    err.classList.add('hidden');
+    boot();
+  }else{err.classList.remove('hidden');}
+}
+
+function boot(){
+  ensureDefaultStudent();
+  renderStudentSelect();
+  loadActiveStudent();
+  initScroll();
+  initMobileMenu();
+  initLucide();
+}
+
+function getStudents(){return JSON.parse(localStorage.getItem(STORAGE_STUDENTS)||'[]');}
+function saveStudents(d){localStorage.setItem(STORAGE_STUDENTS,JSON.stringify(d));}
+function getTests(){return JSON.parse(localStorage.getItem(STORAGE_TESTS)||'{}');}
+function saveTests(d){localStorage.setItem(STORAGE_TESTS,JSON.stringify(d));}
+
+function ensureDefaultStudent(){
+  var s=getStudents();
+  if(!s.length){s.push({id:String(Date.now()),nome:'Vitória'});saveStudents(s);}
+  if(!localStorage.getItem('tc_active_id'))localStorage.setItem('tc_active_id',s[0].id);
+}
+
+function renderStudentSelect(){
+  var sel=document.getElementById('student-select');
+  var students=getStudents();
+  activeStudentId=localStorage.getItem('tc_active_id')||students[0].id;
+  sel.innerHTML=students.map(function(s){
+    return '<option value="'+s.id+'"'+(s.id===activeStudentId?' selected':'')+'>'+s.nome+'</option>';
+  }).join('');
+}
+
+function switchStudent(id){
+  saveCurrentTest();
+  activeStudentId=id;
+  localStorage.setItem('tc_active_id',id);
+  loadActiveStudent();
+  showToast('Aluna alterada: '+getStudentName(id));
+}
+
+function getStudentName(id){
+  var s=getStudents().find(function(x){return x.id===id;});
+  return s?s.nome:'Aluna';
+}
+
+function addStudent(){
+  var name=document.getElementById('new-student-name').value.trim();
+  if(!name){showToast('Digite o nome da aluna.');return;}
+  var students=getStudents();
+  var id=String(Date.now());
+  students.push({id:id,nome:name});
+  saveStudents(students);
+  document.getElementById('new-student-name').value='';
+  renderStudentSelect();
+  switchStudent(id);
+}
+
+function deleteCurrentStudent(){
+  var students=getStudents();
+  if(students.length<=1){showToast('É necessário ter pelo menos uma aluna.');return;}
+  var name=getStudentName(activeStudentId);
+  if(!confirm('Excluir "'+name+'" e todos os testes salvos?'))return;
+  students=students.filter(function(s){return s.id!==activeStudentId;});
+  saveStudents(students);
+  var tests=getTests();
+  delete tests[activeStudentId];
+  saveTests(tests);
+  localStorage.setItem('tc_active_id',students[0].id);
+  renderStudentSelect();
+  loadActiveStudent();
+  showToast('Aluna excluída.');
+}
+
+function getMetaFromForm(){
+  var dateEl=document.getElementById('meta-date');
+  var dateVal=dateEl.value;
+  var dateFmt='';
+  if(dateVal){var p=dateVal.split('-');dateFmt=p[2]+'/'+p[1]+'/'+p[0];}
+  return{
+    studentName:getStudentName(activeStudentId),
+    testDate:dateFmt,
+    fcRest:document.getElementById('meta-fc-rest').value,
+    startSpeed:document.getElementById('meta-start-speed').value,
+    increment:document.getElementById('meta-increment').value,
+    noIncline:document.getElementById('meta-no-incline').value==='1',
+    whatsapp:document.getElementById('student-whatsapp').value
+  };
+}
+
+function getStagesFromTable(){
+  var rows=document.querySelectorAll('#stages-body tr');
+  var stages=[];
+  rows.forEach(function(tr){
+    stages.push({
+      minute:tr.querySelector('[data-f="minute"]').value,
+      phase:tr.dataset.phase||'teste',
+      stage:tr.dataset.stage||'',
+      speed:tr.querySelector('[data-f="speed"]').value,
+      borg:tr.querySelector('[data-f="borg"]').value,
+      hr:tr.querySelector('[data-f="hr"]').value
+    });
+  });
+  return stages;
+}
+
+function saveCurrentTest(){
+  if(!activeStudentId)return;
+  var tests=getTests();
+  tests[activeStudentId]={
+    meta:getMetaFromForm(),
+    stages:getStagesFromTable(),
+    manualStage:document.getElementById('meta-manual-stage').value,
+    results:currentResults
+  };
+  saveTests(tests);
+}
+
+function loadActiveStudent(){
+  activeStudentId=localStorage.getItem('tc_active_id');
+  var tests=getTests();
+  var data=tests[activeStudentId];
+  if(!data){
+    document.getElementById('meta-date').value='';
+    document.getElementById('meta-fc-rest').value='';
+    document.getElementById('meta-start-speed').value='7';
+    document.getElementById('meta-increment').value='1';
+    document.getElementById('meta-no-incline').value='0';
+    document.getElementById('student-whatsapp').value='';
+    renderStages([]);
+    currentResults=null;
+    showResultsEmpty();
+    return;
+  }
+  var m=data.meta||{};
+  if(m.testDate){
+    var p=m.testDate.split('/');
+    if(p.length===3)document.getElementById('meta-date').value=p[2]+'-'+p[1]+'-'+p[0];
+  }else document.getElementById('meta-date').value='';
+  document.getElementById('meta-fc-rest').value=m.fcRest||'';
+  document.getElementById('meta-start-speed').value=m.startSpeed||'7';
+  document.getElementById('meta-increment').value=m.increment||'1';
+  document.getElementById('meta-no-incline').value=m.noIncline?'1':'0';
+  document.getElementById('student-whatsapp').value=m.whatsapp||'';
+  renderStages(data.stages||[]);
+  updateManualStageOptions();
+  document.getElementById('meta-manual-stage').value=data.manualStage||'';
+  if(data.results){currentResults=data.results;displayResults(currentResults);}else{currentResults=null;showResultsEmpty();}
+}
+
+function onMetaChange(){saveCurrentTest();}
+
+function renderStages(stages){
+  var tbody=document.getElementById('stages-body');
+  if(!stages.length){
+    tbody.innerHTML='';
+    return;
+  }
+  var enriched=ConconiCalc.enrichStages(stages);
+  tbody.innerHTML=enriched.map(function(s,idx){
+    var phaseClass=s.phase==='aquecimento'?'phase-aquecimento':'phase-teste';
+    var phaseLabel=s.phase==='aquecimento'?'Aquec.':'Teste';
+    return '<tr data-phase="'+s.phase+'"'+(s.stage?' data-stage="'+s.stage+'"':'')+'>'
+      +'<td class="p-2 sticky-col bg-white border-r border-gray-100"><input type="number" data-f="minute" class="test-input" value="'+(s.minute!=null?s.minute:'')+'"></td>'
+      +'<td class="p-2 text-center"><span class="phase-tag '+phaseClass+'">'+phaseLabel+(s.stage?' '+s.stage:'')+'</span></td>'
+      +'<td class="p-2"><input type="number" step="0.1" data-f="speed" class="test-input" value="'+(s.speed||'')+'" oninput="onStageInput()"></td>'
+      +'<td class="p-2"><input type="number" min="1" max="10" data-f="borg" class="test-input" value="'+(s.borg||'')+'" oninput="onStageInput()"></td>'
+      +'<td class="p-2"><input type="number" data-f="hr" class="test-input" value="'+(s.hr||'')+'" oninput="onStageInput()"></td>'
+      +'<td class="p-2 text-center text-sm font-bold text-gray-500 pace-cell">'+(s.pace||'—')+'</td>'
+      +'<td class="p-2 text-center text-sm font-bold delta-cell">'+(s.deltaHr!==''&&s.deltaHr!=null?s.deltaHr:'—')+'</td>'
+      +'<td class="p-2 text-center"><button type="button" onclick="removeRow(this)" class="text-red-400 hover:text-red-600 text-lg leading-none">&times;</button></td>'
+      +'</tr>';
+  }).join('');
+  updateManualStageOptions();
+}
+
+function onStageInput(){
+  var stages=getStagesFromTable();
+  var enriched=ConconiCalc.enrichStages(stages);
+  var rows=document.querySelectorAll('#stages-body tr');
+  rows.forEach(function(tr,i){
+    var paceCell=tr.querySelector('.pace-cell');
+    var deltaCell=tr.querySelector('.delta-cell');
+    if(paceCell)paceCell.textContent=enriched[i].pace||'—';
+    if(deltaCell)deltaCell.textContent=enriched[i].deltaHr!==''&&enriched[i].deltaHr!=null?enriched[i].deltaHr:'—';
+  });
+  saveCurrentTest();
+}
+
+function updateManualStageOptions(){
+  var sel=document.getElementById('meta-manual-stage');
+  var cur=sel.value;
+  sel.innerHTML='<option value="">Automático (Dmax)</option>';
+  document.querySelectorAll('#stages-body tr[data-phase="teste"]').forEach(function(tr){
+    var st=tr.dataset.stage;
+    if(st)sel.innerHTML+='<option value="'+st+'">Estágio '+st+'</option>';
+  });
+  sel.value=cur;
+}
+
+function generateProtocol(){
+  var meta=getMetaFromForm();
+  var stages=ConconiCalc.generateProtocolStages({
+    startSpeed:meta.startSpeed,
+    increment:meta.increment,
+    noIncline:meta.noIncline,
+    maxStages:15
+  });
+  renderStages(stages);
+  saveCurrentTest();
+  showToast('Protocolo gerado! Preencha Borg e FC.');
+  document.getElementById('tabela').scrollIntoView({behavior:'smooth'});
+}
+
+function addStageRow(){
+  var stages=getStagesFromTable();
+  var last=stages[stages.length-1];
+  var lastMin=last?ConconiCalc.parseNum(last.minute)||0:0;
+  var lastSpeed=last?ConconiCalc.parseNum(last.speed)||7:7;
+  var inc=ConconiCalc.parseNum(document.getElementById('meta-increment').value)||1;
+  var interval=document.getElementById('meta-no-incline').value==='1'?2:1;
+  var testCount=stages.filter(function(s){return s.phase==='teste';}).length;
+  stages.push({
+    minute:lastMin+interval,
+    speed:lastSpeed+inc,
+    phase:'teste',
+    stage:testCount+1,
+    borg:'',
+    hr:''
+  });
+  renderStages(stages);
+  saveCurrentTest();
+}
+
+function removeRow(btn){
+  var tr=btn.closest('tr');
+  var tbody=document.getElementById('stages-body');
+  var idx=Array.prototype.indexOf.call(tbody.children,tr);
+  if(idx<0)return;
+  var stages=getStagesFromTable();
+  stages.splice(idx,1);
+  renderStages(stages);
+  saveCurrentTest();
+}
+
+function calculate(){
+  var meta=getMetaFromForm();
+  var stages=getStagesFromTable();
+  var manualStage=document.getElementById('meta-manual-stage').value;
+  var manual=manualStage?parseInt(manualStage,10):null;
+  var results=ConconiCalc.calculateResults(meta,stages,{manualStage:manual});
+  currentResults=results;
+  saveCurrentTest();
+  if(!results.valid){
+    showToast('Preencha pelo menos 3 estágios do teste com FC e velocidade.');
+    showResultsEmpty();
+    return;
+  }
+  displayResults(results);
+  showToast('Resultados calculados!');
+  document.getElementById('resultados').scrollIntoView({behavior:'smooth'});
+}
+
+function showResultsEmpty(){
+  document.getElementById('results-empty').classList.remove('hidden');
+  document.getElementById('results-content').classList.add('hidden');
+}
+
+function displayResults(r){
+  document.getElementById('results-empty').classList.add('hidden');
+  document.getElementById('results-content').classList.remove('hidden');
+  document.getElementById('res-fc-max').textContent=r.fcMax||'—';
+  if(r.threshold){
+    document.getElementById('res-threshold-hr').textContent=r.threshold.hr+' bpm';
+    document.getElementById('res-threshold-detail').textContent=r.threshold.speed.toFixed(1)+' km/h · Estágio '+r.threshold.stage+' · '+r.threshold.method;
+    document.getElementById('res-threshold-pace').textContent=r.threshold.pace;
+  }else{
+    document.getElementById('res-threshold-hr').textContent='—';
+    document.getElementById('res-threshold-detail').textContent='Dados insuficientes para estimar o limiar';
+    document.getElementById('res-threshold-pace').textContent='—';
+  }
+  var zonesHtml='';
+  r.zones.forEach(function(z){
+    zonesHtml+='<div class="zone-row"><div class="zone-dot" style="background:'+z.color+'"></div>'
+      +'<div class="flex-grow"><p class="font-bold text-sm">'+z.name+'</p>'
+      +'<p class="text-xs text-gray-500">'+z.pctMin+'–'+z.pctMax+'% FC máx · '+z.fcMin+'–'+z.fcMax+' bpm</p></div>'
+      +'<div class="text-right text-sm font-bold" style="color:var(--verde-dark)">'+z.paceMin+' – '+z.paceMax+'</div></div>';
+  });
+  document.getElementById('zones-list').innerHTML=zonesHtml;
+  renderChart(r);
+  initLucide();
+}
+
+function renderChart(r){
+  var ctx=document.getElementById('hr-chart');
+  if(hrChart)hrChart.destroy();
+  var thresholdHr=r.threshold?r.threshold.hr:null;
+  hrChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:r.chart.labels,
+      datasets:[{
+        label:'FC (bpm)',
+        data:r.chart.hr,
+        borderColor:'#4A7C62',
+        backgroundColor:'rgba(74,124,98,.12)',
+        fill:true,
+        tension:.3,
+        pointRadius:5,
+        pointBackgroundColor:r.chart.hr.map(function(h){return h===thresholdHr?'#B03020':'#4A7C62';})
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{title:{display:true,text:'Velocidade (km/h)',font:{weight:'bold'}}},
+        y:{title:{display:true,text:'FC (bpm)',font:{weight:'bold'}},beginAtZero:false}
+      }
+    }
+  });
+}
+
+function buildReportText(){
+  if(!currentResults||!currentResults.valid)return '';
+  return ConconiCalc.buildWhatsAppReport(getMetaFromForm(),currentResults);
+}
+
+function sendWhatsApp(){
+  if(!currentResults||!currentResults.valid){showToast('Calcule os resultados antes de enviar.');return;}
+  var msg=buildReportText();
+  var phone=(document.getElementById('student-whatsapp').value||'5573991040064').replace(/\D/g,'');
+  if(phone.length<=11&&phone.indexOf('55')!==0)phone='55'+phone;
+  window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msg),'_blank');
+}
+
+function copyReport(){
+  if(!currentResults||!currentResults.valid){showToast('Calcule os resultados antes de copiar.');return;}
+  var msg=buildReportText();
+  navigator.clipboard.writeText(msg).then(function(){showToast('Relatório copiado!');});
+}
+
+function generatePDF(){
+  if(!currentResults||!currentResults.valid){showToast('Calcule os resultados antes de gerar o PDF.');return;}
+  var meta=getMetaFromForm();
+  var r=currentResults;
+  var doc=new window.jspdf.jsPDF({unit:'mm',format:'a4'});
+  var verde=[74,124,98];
+  var preto=[26,26,26];
+  var y=20;
+
+  doc.setFillColor(24,24,27);
+  doc.rect(0,0,210,40,'F');
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(16);
+  doc.setTextColor(255,255,255);
+  doc.text('Prof. Joyce Neres',20,18);
+  doc.setFontSize(10);
+  doc.setTextColor(138,186,158);
+  doc.text('TESTE DE CONCONI NA ESTEIRA — RESULTADO',20,28);
+  y=50;
+
+  doc.setTextColor(preto[0],preto[1],preto[2]);
+  doc.setFontSize(11);
+  doc.text('Aluna: '+meta.studentName,20,y);y+=7;
+  if(meta.testDate)doc.text('Data: '+meta.testDate,20,y);
+  if(meta.fcRest)doc.text('FC Repouso: '+meta.fcRest+' bpm',110,y);
+  y+=12;
+
+  doc.setFont('helvetica','bold');
+  doc.setTextColor(verde[0],verde[1],verde[2]);
+  doc.text('Resumo',20,y);y+=8;
+  doc.setFont('helvetica','normal');
+  doc.setTextColor(preto[0],preto[1],preto[2]);
+  if(r.fcMax)doc.text('FC Maxima: '+r.fcMax+' bpm',20,y);
+  y+=7;
+  if(r.threshold){
+    doc.text('Limiar ('+r.threshold.method+'): '+r.threshold.hr+' bpm | '+r.threshold.speed.toFixed(1)+' km/h | Ritmo '+r.threshold.pace,20,y);
+    y+=10;
+  }
+
+  doc.setFont('helvetica','bold');
+  doc.setTextColor(verde[0],verde[1],verde[2]);
+  doc.text('Zonas de treino',20,y);y+=8;
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(9);
+  r.zones.forEach(function(z){
+    if(y>270){doc.addPage();y=20;}
+    doc.text(z.name+': '+z.fcMin+'-'+z.fcMax+' bpm | Ritmo '+z.paceMin+'-'+z.paceMax,20,y);
+    y+=6;
+  });
+
+  y+=8;
+  doc.setFontSize(8);
+  doc.setTextColor(120,120,120);
+  doc.text('Gerado em '+new Date().toLocaleDateString('pt-BR')+' — JN Consultoria de Treino',20,y);
+
+  var fname='conconi-'+meta.studentName.replace(/\s+/g,'-').toLowerCase()+'.pdf';
+  doc.save(fname);
+  showToast('PDF baixado!');
+}
+
+function showToast(msg){
+  var t=document.getElementById('toast');
+  t.innerText=msg;
+  t.className='show';
+  setTimeout(function(){t.className='';},3000);
+}
+
+function initScroll(){
+  var backTop=document.getElementById('backTop');
+  var progress=document.getElementById('progress');
+  window.addEventListener('scroll',function(){
+    var scrollY=window.scrollY||window.pageYOffset;
+    var docH=document.documentElement.scrollHeight-window.innerHeight;
+    progress.style.width=(docH>0?scrollY/docH*100:0)+'%';
+    if(scrollY>300)backTop.classList.add('visible');else backTop.classList.remove('visible');
+  },{passive:true});
+}
+
+function initMobileMenu(){
+  var btn=document.getElementById('mobile-menu-btn');
+  var menu=document.getElementById('mobile-menu');
+  var open=false;
+  btn.addEventListener('click',function(){
+    open=!open;
+    if(open){menu.classList.remove('translate-x-full');document.body.style.overflow='hidden';}
+    else{menu.classList.add('translate-x-full');document.body.style.overflow='auto';}
+    initLucide();
+  });
+  document.querySelectorAll('.mobile-link').forEach(function(l){
+    l.addEventListener('click',function(){
+      open=false;menu.classList.add('translate-x-full');document.body.style.overflow='auto';
+    });
+  });
+}
+
+document.addEventListener('DOMContentLoaded',function(){
+  if(sessionStorage.getItem(COACH_KEY)==='1'){
+    document.getElementById('coach-gate').classList.add('hidden');
+    document.getElementById('app-content').classList.remove('locked');
+    boot();
+  }
+  document.getElementById('coach-pin').addEventListener('keydown',function(e){
+    if(e.key==='Enter')verifyCoachPin();
+  });
+});
+</script>
+</body>
+</html>
